@@ -1,0 +1,85 @@
+@page "/league/{LeagueId}"
+
+<PageTitle>@league?.Name ?? "League"</PageTitle>
+
+@if (league == null)
+{
+    <p class="text-muted">Loading...</p>
+    return;
+}
+
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <h1>@league.Name</h1>
+            <p class="text-muted">Season @league.Season · @league.TotalRosters teams · @league.Source</p>
+        </div>
+    </div>
+
+    <h2>Teams</h2>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Team</th>
+                <th>Manager</th>
+                <th>W</th>
+                <th>L</th>
+                <th>T</th>
+                <th>PF</th>
+                <th>PA</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (teams == null)
+            {
+                <tr><td colspan="7" class="text-muted">Loading...</td></tr>
+            }
+            else if (teams.Count == 0)
+            {
+                <tr><td colspan="7" class="text-muted">No teams loaded.</td></tr>
+            }
+            else
+            {
+                var ownerMap = users?.ToDictionary(u => u.Id, u => u.DisplayName ?? "Unknown") ?? [];
+                @foreach (var team in teams.OrderByDescending(t => t.Wins))
+                {
+                    var managerName = team.OwnerId != null && ownerMap.TryGetValue(team.OwnerId, out var name) ? name : "—";
+                    <tr>
+                        <td>@team.TeamName</td>
+                        <td>@managerName</td>
+                        <td>@team.Wins</td>
+                        <td>@team.Losses</td>
+                        <td>@team.Ties</td>
+                        <td>@team.PointsFor.ToString("F1")</td>
+                        <td>@team.PointsAgainst.ToString("F1")</td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+</div>
+
+@code {
+    [Parameter]
+    public string LeagueId { get; set; } = string.Empty;
+
+    private League? league;
+    private List<Team>? teams;
+    private List<User>? users;
+
+    [Inject]
+    private LeagueService LeagueService { get; set; } = default!;
+
+    [Inject]
+    private FantfootDbContext Db { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        league = await LeagueService.GetLeagueAsync(LeagueId);
+        if (league != null)
+        {
+            teams = await Db.Teams.Where(t => t.LeagueId == LeagueId).ToListAsync();
+            users = await Db.Users.Where(u => u.LeagueId == LeagueId).ToListAsync();
+        }
+    }
+}

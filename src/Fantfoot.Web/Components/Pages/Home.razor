@@ -1,0 +1,150 @@
+﻿@page "/"
+
+<PageTitle>Fantfoot</PageTitle>
+
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <h1>Fantasy Football Tracker</h1>
+            <p class="text-muted">Track your leagues, rosters, and player stats.</p>
+        </div>
+    </div>
+
+    @if (nflState != null)
+    {
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">NFL Season</h5>
+                        <p class="card-text display-6">@nflState.Season</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Current Week</h5>
+                        <p class="card-text display-6">Week @nflState.Week</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Season Type</h5>
+                        <p class="card-text display-6">@nflState.SeasonType</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    <div class="row mb-3">
+        <div class="col">
+            <h2>Leagues</h2>
+        </div>
+        <div class="col-auto">
+            <button class="btn btn-primary" @onclick="ImportLeague" disabled="@importing">
+                @(importing ? "Importing..." : "Import League")
+            </button>
+        </div>
+    </div>
+
+    @if (importError != null)
+    {
+        <div class="alert alert-danger" role="alert">
+            @importError
+        </div>
+    }
+
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Season</th>
+                <th>Teams</th>
+                <th>Source</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (leagues == null)
+            {
+                <tr><td colspan="5" class="text-muted">Loading...</td></tr>
+            }
+            else if (leagues.Count == 0)
+            {
+                <tr><td colspan="5" class="text-muted">No leagues imported yet. Click "Import League" to add one.</td></tr>
+            }
+            else
+            {
+                @foreach (var league in leagues)
+                {
+                    <tr>
+                        <td>@league.Name</td>
+                        <td>@league.Season</td>
+                        <td>@league.TotalRosters</td>
+                        <td>@league.Source</td>
+                        <td>
+                            <a href="/league/@league.Id" class="btn btn-sm btn-outline-primary">View</a>
+                        </td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+</div>
+
+@code {
+    private List<League>? leagues;
+    private SleeperNflStateDto? nflState;
+
+    [Inject]
+    private LeagueService LeagueService { get; set; } = default!;
+
+    [Inject]
+    private SleeperClient Sleeper { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        leagues = await LeagueService.GetLeaguesAsync();
+        nflState = await Sleeper.GetNflStateAsync();
+    }
+
+    private string? importError;
+    private bool importing;
+
+    private async Task ImportLeague()
+    {
+        var leagueId = await Prompt("Enter Sleeper League ID:");
+        if (string.IsNullOrWhiteSpace(leagueId)) return;
+
+        importing = true;
+        importError = null;
+        try
+        {
+            await LeagueService.ImportLeagueAsync(leagueId);
+            await LeagueService.ImportRostersAsync(leagueId);
+            await LeagueService.ImportUsersAsync(leagueId);
+            leagues = await LeagueService.GetLeaguesAsync();
+        }
+        catch (Exception ex)
+        {
+            importError = ex.InnerException?.Message ?? ex.Message;
+        }
+        finally
+        {
+            importing = false;
+        }
+    }
+
+    private async Task<string?> Prompt(string message)
+    {
+        var js = await JSRuntime.InvokeAsync<string?>("prompt", message);
+        return js;
+    }
+
+    [Inject]
+    private IJSRuntime JSRuntime { get; set; } = default!;
+}
