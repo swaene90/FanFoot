@@ -118,6 +118,7 @@
     private int totalPicks;
 
     private Dictionary<string, string> teamMap = [];
+    private Dictionary<string, string> ownerTeamMap = [];
     private List<(string RosterId, string TeamName)> teamOptions = [];
     private List<(int Pick, string TeamName)>? draftOrder;
 
@@ -136,9 +137,13 @@
         if (draftInfo == null) return;
 
         teams = await Db.Teams.Where(t => t.LeagueId == LeagueId).ToListAsync();
+        var users = await Db.Users.Where(u => u.LeagueId == LeagueId).ToListAsync();
         teamMap = teams.ToDictionary(
             t => t.Id.Split('_').Last(),
             t => t.TeamName);
+        ownerTeamMap = teams
+            .Where(t => t.OwnerId != null)
+            .ToDictionary(t => t.OwnerId!, t => t.TeamName);
 
         teamOptions = teams
             .Select(t => (RosterId: t.Id.Split('_').Last(), t.TeamName))
@@ -150,7 +155,7 @@
             picks = await LeagueService.ImportDraftPicksAsync(LeagueId);
             totalPicks = picks.Count;
         }
-        else if (draftInfo.Status == "pre_draft")
+        else
         {
             totalPicks = (draftInfo.Settings?.Rounds ?? 0) * (draftInfo.Settings?.Teams ?? 0);
             BuildDraftOrder();
@@ -159,18 +164,32 @@
 
     private void BuildDraftOrder()
     {
-        if (draftInfo?.SlotToRosterId == null) return;
-
-        var slots = draftInfo.SlotToRosterId
-            .OrderBy(kvp => int.Parse(kvp.Key))
-            .ToList();
-
-        draftOrder = [];
-        foreach (var (slot, rosterId) in slots)
+        if (draftInfo?.SlotToRosterId != null)
         {
-            var teamName = teamMap.GetValueOrDefault(rosterId.ToString(), $"Team {rosterId}");
-            var pickNumber = int.Parse(slot);
-            draftOrder.Add((pickNumber, teamName));
+            var slots = draftInfo.SlotToRosterId
+                .OrderBy(kvp => int.Parse(kvp.Key))
+                .ToList();
+
+            draftOrder = [];
+            foreach (var (slot, rosterId) in slots)
+            {
+                var teamName = teamMap.GetValueOrDefault(rosterId.ToString(), $"Team {rosterId}");
+                draftOrder.Add((int.Parse(slot), teamName));
+            }
+        }
+        else if (draftInfo?.DraftOrder != null)
+        {
+            var order = draftInfo.DraftOrder
+                .OrderBy(kvp => kvp.Value)
+                .ToList();
+
+            draftOrder = [];
+            var pick = 1;
+            foreach (var (userId, _) in order)
+            {
+                var teamName = ownerTeamMap.GetValueOrDefault(userId, $"User {userId}");
+                draftOrder.Add((pick++, teamName));
+            }
         }
     }
 }
