@@ -41,6 +41,7 @@ public class LeagueService
             existing.Name = league.Name;
             existing.Avatar = league.Avatar;
             existing.Season = league.Season;
+            existing.PreviousLeagueId = league.PreviousLeagueId;
             existing.TotalRosters = league.TotalRosters;
             existing.Metadata = league.Metadata;
             existing.UpdatedAt = DateTime.UtcNow;

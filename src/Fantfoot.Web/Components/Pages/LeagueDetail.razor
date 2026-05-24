@@ -14,6 +14,20 @@
             <h1>@league.Name</h1>
             <p class="text-muted">Season @league.Season · @league.TotalRosters teams · @league.Source</p>
         </div>
+        <div class="col-auto d-flex align-items-center gap-2">
+            @if (previousLeague != null)
+            {
+                <a href="/league/@previousLeague.Id" class="btn btn-outline-secondary btn-sm">
+                    &larr; @previousLeague.Season Season
+                </a>
+            }
+            else if (league.PreviousLeagueId != null)
+            {
+                <button class="btn btn-outline-secondary btn-sm" @onclick="ImportPreviousSeason" disabled="@importingPrev">
+                    @(importingPrev ? "Importing..." : $"Import {league.Season - 1} Season")
+                </button>
+            }
+        </div>
     </div>
 
     <h2>Teams</h2>
@@ -70,6 +84,8 @@
     private League? league;
     private List<Team>? teams;
     private List<User>? users;
+    private League? previousLeague;
+    private bool importingPrev;
 
     [Inject]
     private LeagueService LeagueService { get; set; } = default!;
@@ -84,6 +100,23 @@
         {
             teams = await Db.Teams.Where(t => t.LeagueId == LeagueId).ToListAsync();
             users = await Db.Users.Where(u => u.LeagueId == LeagueId).ToListAsync();
+            if (league.PreviousLeagueId != null)
+            {
+                previousLeague = await LeagueService.GetLeagueAsync(league.PreviousLeagueId);
+            }
         }
+    }
+
+    private async Task ImportPreviousSeason()
+    {
+        if (league?.PreviousLeagueId == null) return;
+        importingPrev = true;
+
+        var prevLeague = await LeagueService.ImportLeagueAsync(league.PreviousLeagueId);
+        await LeagueService.ImportUsersAsync(prevLeague.Id);
+        await LeagueService.ImportRostersAsync(prevLeague.Id);
+
+        previousLeague = prevLeague;
+        importingPrev = false;
     }
 }

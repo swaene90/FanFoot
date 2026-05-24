@@ -58,42 +58,45 @@
         </div>
     }
 
-    <table class="table table-striped">
-        <thead>
-            <tr>
-                <th>Name</th>
-                <th>Season</th>
-                <th>Teams</th>
-                <th>Source</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            @if (leagues == null)
-            {
-                <tr><td colspan="5" class="text-muted">Loading...</td></tr>
-            }
-            else if (leagues.Count == 0)
-            {
-                <tr><td colspan="5" class="text-muted">No leagues imported yet. Click "Import League" to add one.</td></tr>
-            }
-            else
-            {
-                @foreach (var league in leagues)
-                {
+    @if (leagues == null)
+    {
+        <p class="text-muted">Loading...</p>
+    }
+    else if (leagues.Count == 0)
+    {
+        <p class="text-muted">No leagues imported yet. Click "Import League" to add one.</p>
+    }
+    else
+    {
+        var grouped = leagues.GroupBy(l => l.Season).OrderByDescending(g => g.Key);
+        @foreach (var seasonGroup in grouped)
+        {
+            <h3 class="mt-3 mb-2">@seasonGroup.Key Season</h3>
+            <table class="table table-striped">
+                <thead>
                     <tr>
-                        <td>@league.Name</td>
-                        <td>@league.Season</td>
-                        <td>@league.TotalRosters</td>
-                        <td>@league.Source</td>
-                        <td>
-                            <a href="/league/@league.Id" class="btn btn-sm btn-outline-primary">View</a>
-                        </td>
+                        <th>Name</th>
+                        <th>Teams</th>
+                        <th>Source</th>
+                        <th></th>
                     </tr>
-                }
-            }
-        </tbody>
-    </table>
+                </thead>
+                <tbody>
+                    @foreach (var league in seasonGroup)
+                    {
+                        <tr>
+                            <td>@league.Name</td>
+                            <td>@league.TotalRosters</td>
+                            <td>@league.Source</td>
+                            <td>
+                                <a href="/league/@league.Id" class="btn btn-sm btn-outline-primary">View</a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    }
 </div>
 
 @code {
