@@ -56,7 +56,7 @@ public class SleeperPlayerDto
     public string? SearchFullName { get; set; }
 
     [JsonPropertyName("depth_chart_position")]
-    public int? DepthChartPosition { get; set; }
+    public string? DepthChartPosition { get; set; }
 
     [JsonPropertyName("depth_chart_order")]
     public int? DepthChartOrder { get; set; }
@@ -71,13 +71,13 @@ public class SleeperPlayerDto
     public int? RotoworldId { get; set; }
 
     [JsonPropertyName("yahoo_id")]
-    public string? YahooId { get; set; }
+    public int? YahooId { get; set; }
 
     [JsonPropertyName("espn_id")]
-    public string? EspnId { get; set; }
+    public int? EspnId { get; set; }
 
     [JsonPropertyName("stats_id")]
-    public string? StatsId { get; set; }
+    public int? StatsId { get; set; }
 
     [JsonPropertyName("fantasy_data_id")]
     public int? FantasyDataId { get; set; }
