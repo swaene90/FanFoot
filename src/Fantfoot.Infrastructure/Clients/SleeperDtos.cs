@@ -311,6 +311,63 @@ public class SleeperDraftPickMetadataDto
     public string? InjuryStatus { get; set; }
 }
 
+public class SleeperDraftDto
+{
+    [JsonPropertyName("draft_id")]
+    public string DraftId { get; set; } = string.Empty;
+
+    [JsonPropertyName("league_id")]
+    public string LeagueId { get; set; } = string.Empty;
+
+    [JsonPropertyName("type")]
+    public string? Type { get; set; }
+
+    [JsonPropertyName("status")]
+    public string? Status { get; set; }
+
+    [JsonPropertyName("season")]
+    public string? Season { get; set; }
+
+    [JsonPropertyName("season_type")]
+    public string? SeasonType { get; set; }
+
+    [JsonPropertyName("draft_order")]
+    public Dictionary<string, int>? DraftOrder { get; set; }
+
+    [JsonPropertyName("slot_to_roster_id")]
+    public Dictionary<string, int>? SlotToRosterId { get; set; }
+
+    [JsonPropertyName("settings")]
+    public SleeperDraftSettingsDto? Settings { get; set; }
+
+    [JsonPropertyName("metadata")]
+    public Dictionary<string, string>? Metadata { get; set; }
+
+    [JsonPropertyName("start_time")]
+    public long? StartTime { get; set; }
+
+    [JsonPropertyName("last_picked")]
+    public long? LastPicked { get; set; }
+}
+
+public class SleeperDraftSettingsDto
+{
+    [JsonPropertyName("rounds")]
+    public int? Rounds { get; set; }
+
+    [JsonPropertyName("teams")]
+    public int? Teams { get; set; }
+
+    [JsonPropertyName("pick_timer")]
+    public int? PickTimer { get; set; }
+
+    [JsonPropertyName("nomination_timer")]
+    public int? NominationTimer { get; set; }
+
+    [JsonPropertyName("reversal_round")]
+    public int? ReversalRound { get; set; }
+}
+
 public class SleeperNflStateDto
 {
     [JsonPropertyName("week")]

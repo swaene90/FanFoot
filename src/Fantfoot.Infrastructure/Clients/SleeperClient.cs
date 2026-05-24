@@ -60,8 +60,13 @@ public class SleeperClient
         return await _http.GetFromJsonAsync<List<SleeperLeagueDto>>($"user/{userId}/leagues/nfl/{season}", JsonOptions, ct);
     }
 
-    public async Task<List<SleeperDraftPickDto>?> GetLeagueDraftsAsync(string leagueId, CancellationToken ct = default)
+    public async Task<List<SleeperDraftDto>?> GetLeagueDraftsAsync(string leagueId, CancellationToken ct = default)
     {
-        return await _http.GetFromJsonAsync<List<SleeperDraftPickDto>>($"league/{leagueId}/drafts", JsonOptions, ct);
+        return await _http.GetFromJsonAsync<List<SleeperDraftDto>>($"league/{leagueId}/drafts", JsonOptions, ct);
+    }
+
+    public async Task<SleeperDraftDto?> GetDraftAsync(string draftId, CancellationToken ct = default)
+    {
+        return await _http.GetFromJsonAsync<SleeperDraftDto>($"draft/{draftId}", JsonOptions, ct);
     }
 }

@@ -1,0 +1,176 @@
+@page "/league/{LeagueId}/draft"
+
+<PageTitle>Draft — @league?.Name ?? "League"</PageTitle>
+
+@if (league == null || draftInfo == null)
+{
+    <p class="text-muted">Loading...</p>
+    return;
+}
+
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <h1>@league.Name — Draft</h1>
+            <div class="d-flex align-items-center gap-2">
+                @{
+                    var badgeClass = draftInfo.Status == "complete" ? "bg-success" : "bg-warning text-dark";
+                    var badgeText = draftInfo.Status == "complete" ? "Complete" : "Pre-Draft";
+                }
+                <span class="badge @badgeClass">@badgeText</span>
+                <span class="text-muted">· @draftInfo.Type draft · @totalPicks total picks</span>
+            </div>
+        </div>
+        <div class="col-auto d-flex align-items-center">
+            <select class="form-select form-select-sm" @bind="selectedTeamId">
+                <option value="">All Teams</option>
+                @foreach (var (rosterId, teamName) in teamOptions)
+                {
+                    <option value="@rosterId">@teamName</option>
+                }
+            </select>
+        </div>
+    </div>
+
+    @if (draftInfo.Status == "pre_draft")
+    {
+        <h3>Draft Order</h3>
+        <p class="text-muted">The draft hasn't happened yet. Here's the planned order.</p>
+        @if (draftOrder != null && draftOrder.Count != 0)
+        {
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Pick</th>
+                        <th>Team</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var (pick, teamName) in draftOrder)
+                    {
+                        <tr>
+                            <td>@pick</td>
+                            <td>@teamName</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <p class="text-muted">Draft order not available.</p>
+        }
+    }
+    else
+    {
+        var filteredPicks = string.IsNullOrEmpty(selectedTeamId)
+            ? picks
+            : picks.Where(p => p.TeamId == selectedTeamId).ToList();
+
+        <h3>Picks (@filteredPicks.Count)</h3>
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Round</th>
+                    <th>Pick</th>
+                    <th>Team</th>
+                    <th>Player</th>
+                    <th>Position</th>
+                    <th>NFL Team</th>
+                    <th>Keeper</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (filteredPicks.Count == 0)
+                {
+                    <tr><td colspan="7" class="text-muted">No picks found.</td></tr>
+                }
+                else
+                {
+                    @foreach (var pick in filteredPicks.OrderBy(p => p.PickNumber))
+                    {
+                        var teamName = pick.TeamId != null && teamMap.TryGetValue(pick.TeamId, out var tn) ? tn : "—";
+                        <tr>
+                            <td>@pick.Round</td>
+                            <td>@pick.PickNumber</td>
+                            <td>@teamName</td>
+                            <td>@pick.PlayerName</td>
+                            <td>@pick.Position</td>
+                            <td>@pick.Team</td>
+                            <td>@(pick.IsKeeper == true ? "Yes" : "")</td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public string LeagueId { get; set; } = string.Empty;
+
+    private League? league;
+    private SleeperDraftDto? draftInfo;
+    private List<DraftPick> picks = [];
+    private List<Team> teams = [];
+    private string selectedTeamId = "";
+    private int totalPicks;
+
+    private Dictionary<string, string> teamMap = [];
+    private List<(string RosterId, string TeamName)> teamOptions = [];
+    private List<(int Pick, string TeamName)>? draftOrder;
+
+    [Inject]
+    private LeagueService LeagueService { get; set; } = default!;
+
+    [Inject]
+    private FantfootDbContext Db { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        league = await LeagueService.GetLeagueAsync(LeagueId);
+        if (league == null) return;
+
+        draftInfo = await LeagueService.GetDraftInfoAsync(LeagueId);
+        if (draftInfo == null) return;
+
+        teams = await Db.Teams.Where(t => t.LeagueId == LeagueId).ToListAsync();
+        teamMap = teams.ToDictionary(
+            t => t.Id.Split('_').Last(),
+            t => t.TeamName);
+
+        teamOptions = teams
+            .Select(t => (RosterId: t.Id.Split('_').Last(), t.TeamName))
+            .OrderBy(x => x.TeamName)
+            .ToList();
+
+        if (draftInfo.Status == "complete")
+        {
+            picks = await LeagueService.ImportDraftPicksAsync(LeagueId);
+            totalPicks = picks.Count;
+        }
+        else if (draftInfo.Status == "pre_draft")
+        {
+            totalPicks = (draftInfo.Settings?.Rounds ?? 0) * (draftInfo.Settings?.Teams ?? 0);
+            BuildDraftOrder();
+        }
+    }
+
+    private void BuildDraftOrder()
+    {
+        if (draftInfo?.SlotToRosterId == null) return;
+
+        var slots = draftInfo.SlotToRosterId
+            .OrderBy(kvp => int.Parse(kvp.Key))
+            .ToList();
+
+        draftOrder = [];
+        foreach (var (slot, rosterId) in slots)
+        {
+            var teamName = teamMap.GetValueOrDefault(rosterId.ToString(), $"Team {rosterId}");
+            var pickNumber = int.Parse(slot);
+            draftOrder.Add((pickNumber, teamName));
+        }
+    }
+}

@@ -153,4 +153,39 @@ public class LeagueService
         await _db.SaveChangesAsync(ct);
         return domainUsers;
     }
+
+    public async Task<List<DraftPick>> ImportDraftPicksAsync(string leagueId, CancellationToken ct = default)
+    {
+        var drafts = await _sleeper.GetLeagueDraftsAsync(leagueId, ct) ?? [];
+        var draft = drafts.FirstOrDefault();
+        if (draft == null) return [];
+
+        var picks = await _sleeper.GetDraftPicksAsync(draft.DraftId, ct) ?? [];
+        var domainPicks = picks.Select(p => SleeperMapper.ToDraftPick(p, leagueId)).ToList();
+
+        foreach (var pick in domainPicks)
+        {
+            var existing = await _db.DraftPicks.FindAsync([pick.Id], ct);
+            if (existing != null)
+            {
+                existing.PlayerName = pick.PlayerName;
+                existing.Position = pick.Position;
+                existing.Team = pick.Team;
+                existing.IsKeeper = pick.IsKeeper;
+            }
+            else
+            {
+                _db.DraftPicks.Add(pick);
+            }
+        }
+
+        await _db.SaveChangesAsync(ct);
+        return domainPicks;
+    }
+
+    public async Task<SleeperDraftDto?> GetDraftInfoAsync(string leagueId, CancellationToken ct = default)
+    {
+        var drafts = await _sleeper.GetLeagueDraftsAsync(leagueId, ct) ?? [];
+        return drafts.FirstOrDefault();
+    }
 }
