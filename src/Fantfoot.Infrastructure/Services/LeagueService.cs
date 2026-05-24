@@ -91,6 +91,43 @@ public class LeagueService
         return teams;
     }
 
+    public async Task<int> ImportPlayersAsync(CancellationToken ct = default)
+    {
+        var playerDtos = await _sleeper.GetAllPlayersAsync(ct) ?? [];
+        var players = playerDtos.Select(kvp => SleeperMapper.ToPlayer(kvp.Value)).ToList();
+
+        var existingIds = await _db.Players.Select(p => p.Id).ToListAsync(ct);
+        var existingSet = new HashSet<string>(existingIds);
+
+        var newPlayers = players.Where(p => !existingSet.Contains(p.Id)).ToList();
+        _db.Players.AddRange(newPlayers);
+
+        foreach (var player in players.Where(p => existingSet.Contains(p.Id)))
+        {
+            var existing = await _db.Players.FindAsync([player.Id], ct);
+            if (existing != null)
+            {
+                existing.FirstName = player.FirstName;
+                existing.LastName = player.LastName;
+                existing.Position = player.Position;
+                existing.Team = player.Team;
+                existing.Number = player.Number;
+                existing.Age = player.Age;
+                existing.Height = player.Height;
+                existing.Weight = player.Weight;
+                existing.College = player.College;
+                existing.Status = player.Status;
+                existing.InjuryStatus = player.InjuryStatus;
+                existing.FantasyPositions = player.FantasyPositions;
+                existing.YearsExp = player.YearsExp;
+                existing.Metadata = player.Metadata;
+            }
+        }
+
+        await _db.SaveChangesAsync(ct);
+        return players.Count;
+    }
+
     public async Task<List<User>> ImportUsersAsync(string leagueId, CancellationToken ct = default)
     {
         var users = await _sleeper.GetLeagueUsersAsync(leagueId, ct) ?? [];

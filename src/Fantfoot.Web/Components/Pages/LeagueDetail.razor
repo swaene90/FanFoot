@@ -27,16 +27,17 @@
                 <th>T</th>
                 <th>PF</th>
                 <th>PA</th>
+                <th></th>
             </tr>
         </thead>
         <tbody>
             @if (teams == null)
             {
-                <tr><td colspan="7" class="text-muted">Loading...</td></tr>
+                <tr><td colspan="8" class="text-muted">Loading...</td></tr>
             }
             else if (teams.Count == 0)
             {
-                <tr><td colspan="7" class="text-muted">No teams loaded.</td></tr>
+                <tr><td colspan="8" class="text-muted">No teams loaded.</td></tr>
             }
             else
             {
@@ -52,6 +53,9 @@
                         <td>@team.Ties</td>
                         <td>@team.PointsFor.ToString("F1")</td>
                         <td>@team.PointsAgainst.ToString("F1")</td>
+                        <td>
+                            <a href="/league/@league.Id/team/@team.Id" class="btn btn-sm btn-outline-secondary">Roster</a>
+                        </td>
                     </tr>
                 }
             }

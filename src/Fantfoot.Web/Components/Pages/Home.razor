@@ -44,7 +44,10 @@
         <div class="col">
             <h2>Leagues</h2>
         </div>
-        <div class="col-auto">
+        <div class="col-auto d-flex gap-2">
+            <button class="btn btn-secondary" @onclick="ImportPlayers" disabled="@importing">
+                @(importing ? "Importing..." : "Import Players")
+            </button>
             <button class="btn btn-primary" @onclick="ImportLeague" disabled="@importing">
                 @(importing ? "Importing..." : "Import League")
             </button>
@@ -55,6 +58,12 @@
     {
         <div class="alert alert-danger" role="alert">
             @importError
+        </div>
+    }
+    @if (importSuccess != null)
+    {
+        <div class="alert alert-success" role="alert">
+            @importSuccess
         </div>
     }
 
@@ -113,7 +122,28 @@
     }
 
     private string? importError;
+    private string? importSuccess;
     private bool importing;
+
+    private async Task ImportPlayers()
+    {
+        importing = true;
+        importError = null;
+        importSuccess = null;
+        try
+        {
+            var count = await LeagueService.ImportPlayersAsync();
+            importSuccess = $"Imported {count} players.";
+        }
+        catch (Exception ex)
+        {
+            importError = ex.InnerException?.Message ?? ex.Message;
+        }
+        finally
+        {
+            importing = false;
+        }
+    }
 
     private async Task ImportLeague()
     {
@@ -122,6 +152,7 @@
 
         importing = true;
         importError = null;
+        importSuccess = null;
         try
         {
             await LeagueService.ImportLeagueAsync(leagueId);
