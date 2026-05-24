@@ -1,6 +1,8 @@
 using Fantfoot.Infrastructure;
 using Fantfoot.Infrastructure.Data;
+using Fantfoot.Infrastructure.Services;
 using Fantfoot.Web.Components;
+using Fantfoot.Web.Services;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -11,6 +13,7 @@ builder.Services.AddRazorComponents()
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? "Data Source=fantfoot.db";
 builder.Services.AddFantfootInfrastructure(connectionString);
+builder.Services.AddHostedService<PlayerImportService>();
 
 var app = builder.Build();
 
@@ -27,6 +30,12 @@ else
 
 app.UseStaticFiles();
 app.UseAntiforgery();
+
+app.MapPost("/api/players/import", async (LeagueService leagueService) =>
+{
+    var count = await leagueService.ImportPlayersAsync();
+    return Results.Ok(new { imported = count });
+});
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
