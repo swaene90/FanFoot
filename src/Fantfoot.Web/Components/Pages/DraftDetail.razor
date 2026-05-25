@@ -44,15 +44,17 @@
                             <th>Round</th>
                             <th>Pick</th>
                             <th>Team</th>
+                            <th>Manager</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var (round, pick, teamName) in draftOrder)
+                        @foreach (var (round, pick, teamName, managerName) in draftOrder)
                         {
                             <tr>
                                 <td>@round</td>
                                 <td>@pick</td>
                                 <td>@teamName</td>
+                                <td>@managerName</td>
                             </tr>
                         }
                     </tbody>
@@ -72,20 +74,21 @@
         <h3>Picks (@filteredPicks.Count)</h3>
         <table class="table table-striped">
             <thead>
-                <tr>
-                    <th>Round</th>
-                    <th>Pick</th>
-                    <th>Team</th>
-                    <th>Player</th>
-                    <th>Position</th>
-                    <th>NFL Team</th>
-                    <th>Keeper</th>
-                </tr>
+                    <tr>
+                        <th>Round</th>
+                        <th>Pick</th>
+                        <th>Team</th>
+                        <th>Manager</th>
+                        <th>Player</th>
+                        <th>Position</th>
+                        <th>NFL Team</th>
+                        <th>Keeper</th>
+                    </tr>
             </thead>
             <tbody>
                 @if (filteredPicks.Count == 0)
                 {
-                    <tr><td colspan="7" class="text-muted">No picks found.</td></tr>
+                    <tr><td colspan="8" class="text-muted">No picks found.</td></tr>
                 }
                 else
                 {
@@ -114,6 +117,7 @@
                                     <small class="text-muted">(from @origTeam)</small>
                                 }
                             </td>
+                            <td>@(pick.TeamId != null && managerMap.TryGetValue(pick.TeamId, out var mgr) ? mgr : "—")</td>
                             <td>@pick.PlayerName</td>
                             <td>@pick.Position</td>
                             <td>@pick.Team</td>
@@ -139,8 +143,9 @@
 
     private Dictionary<string, string> teamMap = [];
     private Dictionary<string, string> ownerTeamMap = [];
+    private Dictionary<string, string> managerMap = [];
     private List<(string RosterId, string TeamName)> teamOptions = [];
-    private List<(int Round, int Pick, string TeamName)>? draftOrder;
+    private List<(int Round, int Pick, string TeamName, string ManagerName)>? draftOrder;
     private Dictionary<int, int> slotOwnerMap = [];
     private bool isSnake;
 
@@ -161,12 +166,17 @@
         isSnake = string.Equals(draftInfo.Type, "snake", StringComparison.OrdinalIgnoreCase);
 
         teams = await Db.Teams.Where(t => t.LeagueId == LeagueId).ToListAsync();
+        var users = await Db.Users.Where(u => u.LeagueId == LeagueId).ToListAsync();
+        var userDisplayMap = users.ToDictionary(u => u.Id, u => u.DisplayName ?? u.Id);
         teamMap = teams.ToDictionary(
             t => t.Id.Split('_').Last(),
             t => t.TeamName);
         ownerTeamMap = teams
             .Where(t => t.OwnerId != null)
             .ToDictionary(t => t.OwnerId!, t => t.TeamName);
+        managerMap = teams
+            .Where(t => t.OwnerId != null && userDisplayMap.TryGetValue(t.OwnerId!, out _))
+            .ToDictionary(t => t.Id.Split('_').Last(), t => userDisplayMap[t.OwnerId!]);
 
         teamOptions = teams
             .Select(t => (RosterId: t.Id.Split('_').Last(), t.TeamName))
@@ -212,8 +222,10 @@
 
                 foreach (var (slot, rosterId) in roundSlots)
                 {
-                    var teamName = teamMap.GetValueOrDefault(rosterId.ToString(), $"Team {rosterId}");
-                    draftOrder.Add((round, pick++, teamName));
+                    var rosterIdStr = rosterId.ToString();
+                    var teamName = teamMap.GetValueOrDefault(rosterIdStr, $"Team {rosterId}");
+                    var managerName = managerMap.GetValueOrDefault(rosterIdStr, "—");
+                    draftOrder.Add((round, pick++, teamName, managerName));
                 }
             }
         }
@@ -237,7 +249,8 @@
                 foreach (var (userId, _) in roundOrder)
                 {
                     var teamName = ownerTeamMap.GetValueOrDefault(userId, $"User {userId}");
-                    draftOrder.Add((round, pick++, teamName));
+                    var managerName = "—";
+                    draftOrder.Add((round, pick++, teamName, managerName));
                 }
             }
         }
