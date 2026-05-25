@@ -144,6 +144,7 @@
     private Dictionary<string, string> teamMap = [];
     private Dictionary<string, string> ownerTeamMap = [];
     private Dictionary<string, string> managerMap = [];
+    private Dictionary<string, string> userManagerMap = [];
     private List<(string RosterId, string TeamName)> teamOptions = [];
     private List<(int Round, int Pick, string TeamName, string ManagerName)>? draftOrder;
     private Dictionary<int, int> slotOwnerMap = [];
@@ -176,11 +177,15 @@
             .ToDictionary(t => t.OwnerId!, t => t.TeamName);
 
         managerMap = [];
+        userManagerMap = [];
         foreach (var team in teams)
         {
             var rosterId = team.Id.Split('_').Last();
             if (team.OwnerId != null && userDisplayMap.TryGetValue(team.OwnerId, out var displayName))
+            {
                 managerMap[rosterId] = displayName;
+                userManagerMap[team.OwnerId] = displayName;
+            }
         }
 
         teamOptions = teams
@@ -254,7 +259,7 @@
                 foreach (var (userId, _) in roundOrder)
                 {
                     var teamName = ownerTeamMap.GetValueOrDefault(userId, $"User {userId}");
-                    var managerName = "—";
+                    var managerName = userManagerMap.GetValueOrDefault(userId, "—");
                     draftOrder.Add((round, pick++, teamName, managerName));
                 }
             }
