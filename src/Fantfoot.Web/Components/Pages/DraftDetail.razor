@@ -48,12 +48,18 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var (round, pick, teamName, managerName) in draftOrder)
+                        @foreach (var (round, pick, teamName, managerName, origTeam) in draftOrder)
                         {
                             <tr>
                                 <td>@round</td>
                                 <td>@pick</td>
-                                <td>@teamName</td>
+                                <td>
+                                    @teamName
+                                    @if (origTeam != null)
+                                    {
+                                        <small class="text-muted">(from @origTeam)</small>
+                                    }
+                                </td>
                                 <td>@managerName</td>
                             </tr>
                         }
@@ -146,9 +152,10 @@
     private Dictionary<string, string> managerMap = [];
     private Dictionary<string, string> userManagerMap = [];
     private List<(string RosterId, string TeamName)> teamOptions = [];
-    private List<(int Round, int Pick, string TeamName, string ManagerName)>? draftOrder;
+    private List<(int Round, int Pick, string TeamName, string ManagerName, string? OrigTeam)>? draftOrder;
     private Dictionary<int, int> slotOwnerMap = [];
     private bool isSnake;
+    private Dictionary<(int Slot, int Round), int> tradedPickMap = [];
 
     [Inject]
     private LeagueService LeagueService { get; set; } = default!;
@@ -199,6 +206,13 @@
                 .ToDictionary(kvp => int.Parse(kvp.Key), kvp => kvp.Value);
         }
 
+        var traded = await LeagueService.GetTradedPicksAsync(LeagueId);
+        foreach (var tp in traded)
+        {
+            if (tp.Season == league.Season.ToString())
+                tradedPickMap[(tp.RosterId, tp.Round)] = tp.OwnerId;
+        }
+
         if (draftInfo.Status == "complete")
         {
             picks = await LeagueService.ImportDraftPicksAsync(LeagueId);
@@ -232,10 +246,15 @@
 
                 foreach (var (slot, rosterId) in roundSlots)
                 {
-                    var rosterIdStr = rosterId.ToString();
-                    var teamName = teamMap.GetValueOrDefault(rosterIdStr, $"Team {rosterId}");
+                    var slotNum = int.Parse(slot);
+                    var actualRosterId = tradedPickMap.TryGetValue((slotNum, round), out var tradedOwner) ? tradedOwner : rosterId;
+                    var rosterIdStr = actualRosterId.ToString();
+                    var teamName = teamMap.GetValueOrDefault(rosterIdStr, $"Team {actualRosterId}");
                     var managerName = managerMap.GetValueOrDefault(rosterIdStr, "—");
-                    draftOrder.Add((round, pick++, teamName, managerName));
+                    var origTeam = actualRosterId != rosterId
+                        ? teamMap.GetValueOrDefault(rosterId.ToString(), $"Team {rosterId}")
+                        : null;
+                    draftOrder.Add((round, pick++, teamName, managerName, origTeam));
                 }
             }
         }
@@ -260,7 +279,7 @@
                 {
                     var teamName = ownerTeamMap.GetValueOrDefault(userId, $"User {userId}");
                     var managerName = userManagerMap.GetValueOrDefault(userId, "—");
-                    draftOrder.Add((round, pick++, teamName, managerName));
+                    draftOrder.Add((round, pick++, teamName, managerName, null));
                 }
             }
         }

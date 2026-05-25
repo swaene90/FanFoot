@@ -188,4 +188,9 @@ public class LeagueService
         var drafts = await _sleeper.GetLeagueDraftsAsync(leagueId, ct) ?? [];
         return drafts.FirstOrDefault();
     }
+
+    public async Task<List<SleeperTradedPickDto>> GetTradedPicksAsync(string leagueId, CancellationToken ct = default)
+    {
+        return await _sleeper.GetTradedPicksAsync(leagueId, ct) ?? [];
+    }
 }

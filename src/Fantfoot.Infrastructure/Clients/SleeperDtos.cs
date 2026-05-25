@@ -350,6 +350,24 @@ public class SleeperDraftDto
     public long? LastPicked { get; set; }
 }
 
+public class SleeperTradedPickDto
+{
+    [JsonPropertyName("round")]
+    public int Round { get; set; }
+
+    [JsonPropertyName("season")]
+    public string Season { get; set; } = string.Empty;
+
+    [JsonPropertyName("roster_id")]
+    public int RosterId { get; set; }
+
+    [JsonPropertyName("owner_id")]
+    public int OwnerId { get; set; }
+
+    [JsonPropertyName("previous_owner_id")]
+    public int PreviousOwnerId { get; set; }
+}
+
 public class SleeperDraftSettingsDto
 {
     [JsonPropertyName("rounds")]
