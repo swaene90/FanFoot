@@ -174,9 +174,14 @@
         ownerTeamMap = teams
             .Where(t => t.OwnerId != null)
             .ToDictionary(t => t.OwnerId!, t => t.TeamName);
-        managerMap = teams
-            .Where(t => t.OwnerId != null && userDisplayMap.TryGetValue(t.OwnerId!, out _))
-            .ToDictionary(t => t.Id.Split('_').Last(), t => userDisplayMap[t.OwnerId!]);
+
+        managerMap = [];
+        foreach (var team in teams)
+        {
+            var rosterId = team.Id.Split('_').Last();
+            if (team.OwnerId != null && userDisplayMap.TryGetValue(team.OwnerId, out var displayName))
+                managerMap[rosterId] = displayName;
+        }
 
         teamOptions = teams
             .Select(t => (RosterId: t.Id.Split('_').Last(), t.TeamName))
