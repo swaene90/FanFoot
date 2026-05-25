@@ -154,6 +154,7 @@
     private List<(string RosterId, string TeamName)> teamOptions = [];
     private List<(int Round, int Pick, string TeamName, string ManagerName, string? OrigTeam)>? draftOrder;
     private Dictionary<int, int> slotOwnerMap = [];
+    private Dictionary<string, int> userIdToRosterMap = [];
     private bool isSnake;
     private Dictionary<(int RosterId, int Round), int> tradedPickMap = [];
 
@@ -185,6 +186,7 @@
 
         managerMap = [];
         userManagerMap = [];
+        userIdToRosterMap = [];
         foreach (var team in teams)
         {
             var rosterId = team.Id.Split('_').Last();
@@ -192,6 +194,7 @@
             {
                 managerMap[rosterId] = displayName;
                 userManagerMap[team.OwnerId] = displayName;
+                userIdToRosterMap[team.OwnerId] = int.Parse(rosterId);
             }
         }
 
@@ -277,9 +280,20 @@
 
                 foreach (var (userId, _) in roundOrder)
                 {
-                    var teamName = ownerTeamMap.GetValueOrDefault(userId, $"User {userId}");
-                    var managerName = userManagerMap.GetValueOrDefault(userId, "—");
-                    draftOrder.Add((round, pick++, teamName, managerName, null));
+                    var origRosterId = userIdToRosterMap.GetValueOrDefault(userId, -1);
+                    var actualRosterId = origRosterId;
+                    if (origRosterId > 0 && tradedPickMap.TryGetValue((origRosterId, round), out var tradedOwner))
+                        actualRosterId = tradedOwner;
+                    var teamName = actualRosterId > 0
+                        ? teamMap.GetValueOrDefault(actualRosterId.ToString(), $"Team {actualRosterId}")
+                        : ownerTeamMap.GetValueOrDefault(userId, $"User {userId}");
+                    var managerName = actualRosterId > 0
+                        ? managerMap.GetValueOrDefault(actualRosterId.ToString(), "—")
+                        : userManagerMap.GetValueOrDefault(userId, "—");
+                    var origTeam = actualRosterId != origRosterId && origRosterId > 0
+                        ? teamMap.GetValueOrDefault(origRosterId.ToString(), $"Team {origRosterId}")
+                        : null;
+                    draftOrder.Add((round, pick++, teamName, managerName, origTeam));
                 }
             }
         }
