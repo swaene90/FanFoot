@@ -37,25 +37,27 @@
         <h3>Draft Order</h3>
         <p class="text-muted">The draft hasn't happened yet. Here's the planned order.</p>
         @if (draftOrder != null && draftOrder.Count != 0)
-        {
-            <table class="table table-striped">
-                <thead>
-                    <tr>
-                        <th>Pick</th>
-                        <th>Team</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var (pick, teamName) in draftOrder)
-                    {
+            {
+                <table class="table table-striped">
+                    <thead>
                         <tr>
-                            <td>@pick</td>
-                            <td>@teamName</td>
+                            <th>Round</th>
+                            <th>Pick</th>
+                            <th>Team</th>
                         </tr>
-                    }
-                </tbody>
-            </table>
-        }
+                    </thead>
+                    <tbody>
+                        @foreach (var (round, pick, teamName) in draftOrder)
+                        {
+                            <tr>
+                                <td>@round</td>
+                                <td>@pick</td>
+                                <td>@teamName</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
         else
         {
             <p class="text-muted">Draft order not available.</p>
@@ -90,10 +92,28 @@
                     @foreach (var pick in filteredPicks.OrderBy(p => p.PickNumber))
                     {
                         var teamName = pick.TeamId != null && teamMap.TryGetValue(pick.TeamId, out var tn) ? tn : "—";
+                        var origTeam = (string?)null;
+                        if (slotOwnerMap.Count > 0 && pick.TeamId != null && int.TryParse(pick.TeamId, out var actualRosterId))
+                        {
+                            var numTeams = slotOwnerMap.Count;
+                            var pickInRound = (pick.PickNumber - 1) % numTeams + 1;
+                            var expectedSlot = isSnake && pick.Round % 2 == 0
+                                ? numTeams - pickInRound + 1
+                                : pickInRound;
+                            var origRosterId = slotOwnerMap.GetValueOrDefault(expectedSlot);
+                            if (origRosterId != 0 && actualRosterId != origRosterId && teamMap.TryGetValue(origRosterId.ToString(), out var ot))
+                                origTeam = ot;
+                        }
                         <tr>
                             <td>@pick.Round</td>
                             <td>@pick.PickNumber</td>
-                            <td>@teamName</td>
+                            <td>
+                                @teamName
+                                @if (origTeam != null)
+                                {
+                                    <small class="text-muted">(from @origTeam)</small>
+                                }
+                            </td>
                             <td>@pick.PlayerName</td>
                             <td>@pick.Position</td>
                             <td>@pick.Team</td>
@@ -120,7 +140,9 @@
     private Dictionary<string, string> teamMap = [];
     private Dictionary<string, string> ownerTeamMap = [];
     private List<(string RosterId, string TeamName)> teamOptions = [];
-    private List<(int Pick, string TeamName)>? draftOrder;
+    private List<(int Round, int Pick, string TeamName)>? draftOrder;
+    private Dictionary<int, int> slotOwnerMap = [];
+    private bool isSnake;
 
     [Inject]
     private LeagueService LeagueService { get; set; } = default!;
@@ -136,8 +158,9 @@
         draftInfo = await LeagueService.GetDraftInfoAsync(LeagueId);
         if (draftInfo == null) return;
 
+        isSnake = string.Equals(draftInfo.Type, "snake", StringComparison.OrdinalIgnoreCase);
+
         teams = await Db.Teams.Where(t => t.LeagueId == LeagueId).ToListAsync();
-        var users = await Db.Users.Where(u => u.LeagueId == LeagueId).ToListAsync();
         teamMap = teams.ToDictionary(
             t => t.Id.Split('_').Last(),
             t => t.TeamName);
@@ -149,6 +172,12 @@
             .Select(t => (RosterId: t.Id.Split('_').Last(), t.TeamName))
             .OrderBy(x => x.TeamName)
             .ToList();
+
+        if (draftInfo.SlotToRosterId != null)
+        {
+            slotOwnerMap = draftInfo.SlotToRosterId
+                .ToDictionary(kvp => int.Parse(kvp.Key), kvp => kvp.Value);
+        }
 
         if (draftInfo.Status == "complete")
         {
@@ -170,11 +199,22 @@
                 .OrderBy(kvp => int.Parse(kvp.Key))
                 .ToList();
 
+            var numTeams = slots.Count;
+            var rounds = draftInfo.Settings?.Rounds ?? 4;
             draftOrder = [];
-            foreach (var (slot, rosterId) in slots)
+            var pick = 1;
+
+            for (var round = 1; round <= rounds; round++)
             {
-                var teamName = teamMap.GetValueOrDefault(rosterId.ToString(), $"Team {rosterId}");
-                draftOrder.Add((int.Parse(slot), teamName));
+                var roundSlots = isSnake && round % 2 == 0
+                    ? slots.AsEnumerable().Reverse().ToList()
+                    : slots;
+
+                foreach (var (slot, rosterId) in roundSlots)
+                {
+                    var teamName = teamMap.GetValueOrDefault(rosterId.ToString(), $"Team {rosterId}");
+                    draftOrder.Add((round, pick++, teamName));
+                }
             }
         }
         else if (draftInfo?.DraftOrder != null)
@@ -183,12 +223,22 @@
                 .OrderBy(kvp => kvp.Value)
                 .ToList();
 
+            var numTeams = order.Count;
+            var rounds = draftInfo.Settings?.Rounds ?? 4;
             draftOrder = [];
             var pick = 1;
-            foreach (var (userId, _) in order)
+
+            for (var round = 1; round <= rounds; round++)
             {
-                var teamName = ownerTeamMap.GetValueOrDefault(userId, $"User {userId}");
-                draftOrder.Add((pick++, teamName));
+                var roundOrder = isSnake && round % 2 == 0
+                    ? order.AsEnumerable().Reverse().ToList()
+                    : order;
+
+                foreach (var (userId, _) in roundOrder)
+                {
+                    var teamName = ownerTeamMap.GetValueOrDefault(userId, $"User {userId}");
+                    draftOrder.Add((round, pick++, teamName));
+                }
             }
         }
     }
