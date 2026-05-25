@@ -155,7 +155,7 @@
     private List<(int Round, int Pick, string TeamName, string ManagerName, string? OrigTeam)>? draftOrder;
     private Dictionary<int, int> slotOwnerMap = [];
     private bool isSnake;
-    private Dictionary<(int Slot, int Round), int> tradedPickMap = [];
+    private Dictionary<(int RosterId, int Round), int> tradedPickMap = [];
 
     [Inject]
     private LeagueService LeagueService { get; set; } = default!;
@@ -207,9 +207,10 @@
         }
 
         var traded = await LeagueService.GetTradedPicksAsync(LeagueId);
+        var leagueSeason = league.Season.ToString();
         foreach (var tp in traded)
         {
-            if (tp.Season == league.Season.ToString())
+            if (tp.Season == leagueSeason)
                 tradedPickMap[(tp.RosterId, tp.Round)] = tp.OwnerId;
         }
 
@@ -246,8 +247,7 @@
 
                 foreach (var (slot, rosterId) in roundSlots)
                 {
-                    var slotNum = int.Parse(slot);
-                    var actualRosterId = tradedPickMap.TryGetValue((slotNum, round), out var tradedOwner) ? tradedOwner : rosterId;
+                    var actualRosterId = tradedPickMap.TryGetValue((rosterId, round), out var tradedOwner) ? tradedOwner : rosterId;
                     var rosterIdStr = actualRosterId.ToString();
                     var teamName = teamMap.GetValueOrDefault(rosterIdStr, $"Team {actualRosterId}");
                     var managerName = managerMap.GetValueOrDefault(rosterIdStr, "—");
