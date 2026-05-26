@@ -1,7 +1,5 @@
 <Solution>
   <Folder Name="/src/">
-    <Project Path="src/Fantfoot.Domain/Fantfoot.Domain.csproj" />
-    <Project Path="src/Fantfoot.Infrastructure/Fantfoot.Infrastructure.csproj" />
     <Project Path="src/Fantfoot.Web/Fantfoot.Web.csproj" />
   </Folder>
 </Solution>
