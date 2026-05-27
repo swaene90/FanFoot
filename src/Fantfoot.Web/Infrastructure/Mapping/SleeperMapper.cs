@@ -114,7 +114,7 @@ public static class SleeperMapper
             LeagueId = leagueId,
             DisplayName = dto.DisplayName ?? dto.Username,
             Avatar = dto.Avatar,
-            IsOwner = dto.IsOwner,
+            IsOwner = dto.IsOwner ?? false,
             IsCommissioner = dto.IsCommissioner ?? false,
             Metadata = dto.Metadata != null ? JsonSerializer.Serialize(dto.Metadata) : null
         };

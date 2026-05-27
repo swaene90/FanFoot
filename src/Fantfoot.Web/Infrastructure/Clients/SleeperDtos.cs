@@ -215,7 +215,7 @@ public class SleeperUserDto
     public string? Avatar { get; set; }
 
     [JsonPropertyName("is_owner")]
-    public bool IsOwner { get; set; }
+    public bool? IsOwner { get; set; }
 
     [JsonPropertyName("is_commissioner")]
     public bool? IsCommissioner { get; set; }

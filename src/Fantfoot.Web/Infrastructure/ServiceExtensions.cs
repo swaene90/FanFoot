@@ -13,7 +13,7 @@ public static class ServiceExtensions
         string connectionString)
     {
         services.AddDbContext<FantfootDbContext>(options =>
-            options.UseSqlite(connectionString));
+            options.UseNpgsql(connectionString));
 
         services.AddHttpClient<SleeperClient>(client =>
         {

@@ -1,0 +1,9 @@
+**/.vs
+**/.git
+**/bin
+**/obj
+**/*.db
+**/*.db-shm
+**/*.db-wal
+**/CLAUDE.local.md
+**/.claude

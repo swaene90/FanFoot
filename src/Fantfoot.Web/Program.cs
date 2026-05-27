@@ -1,4 +1,5 @@
 using Fantfoot.Infrastructure;
+using Microsoft.AspNetCore.DataProtection;
 using Fantfoot.Infrastructure.Data;
 using Fantfoot.Infrastructure.Services;
 using Fantfoot.Web.Components;
@@ -6,6 +7,10 @@ using Fantfoot.Web.Services;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo(
+        builder.Configuration["DataProtection:KeysPath"] ?? "keys"));
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
@@ -23,13 +28,13 @@ builder.Services.AddHttpClient("Ollama", client =>
 
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
+using (var scope = app.Services.CreateScope())
 {
-    using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<FantfootDbContext>();
     db.Database.Migrate();
 }
-else
+
+if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
 }

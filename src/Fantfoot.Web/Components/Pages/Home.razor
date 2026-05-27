@@ -1,5 +1,4 @@
-﻿@page "/"
-@using Microsoft.AspNetCore.Identity
+@page "/"
 @implements IDisposable
 
 <PageTitle>Fantfoot - Sign In</PageTitle>
@@ -20,52 +19,33 @@
                     @if (checkingSession)
                     {
                         <div class="text-center py-4">
-                            <div class="spinner-border text-primary mb-3" role="status">
+                            <div class="spinner-border text-primary" role="status">
                                 <span class="visually-hidden">Loading...</span>
                             </div>
                         </div>
                     }
-                    else if (importing)
+                    else if (loading)
                     {
                         <div class="text-center py-4">
                             <div class="spinner-border text-primary mb-3" role="status">
                                 <span class="visually-hidden">Loading...</span>
                             </div>
-                            <p class="mb-1">Importing your leagues...</p>
-                            <p class="text-muted small">@importMessage</p>
+                            <p class="text-muted small">@loadingMessage</p>
                         </div>
                     }
                     else
                     {
                         <form @onsubmit="SignIn">
                             <div class="mb-3">
-                                <input type="text" class="form-control form-control-lg"
-                                       placeholder="Sleeper User ID"
+                                <input type="text" class="form-control form-control-lg text-center"
+                                       placeholder="Sleeper Username"
                                        @bind="sleeperUserId" />
                             </div>
-                            <div class="mb-3">
-                                <input type="password" class="form-control form-control-lg"
-                                       placeholder="Password"
-                                       @bind="password" />
-                            </div>
                             <button type="submit" class="btn btn-primary btn-lg w-100"
-                                    disabled="@(!IsValid || importing)">
+                                    disabled="@string.IsNullOrWhiteSpace(sleeperUserId)">
                                 Sign In
                             </button>
                         </form>
-                    }
-
-                    @if (!checkingSession && !importing)
-                    {
-                        <p class="text-muted small mt-3 mb-0">
-                            Don't know your User ID?
-                            <a href="https://sleeper.com/profile" target="_blank">Check your Sleeper profile</a>
-                            &mdash; it's the ID in the URL.
-                        </p>
-
-                        <p class="mt-3 mb-0">
-                            <a href="/forgot-password" class="text-decoration-none small">Forgot Password?</a>
-                        </p>
                     }
                 </div>
             </div>
@@ -74,54 +54,40 @@
 </div>
 
 @code {
-    private string password = string.Empty;
+    private const string AuthorizedLeagueId = "1354116239798046720";
+
     private string sleeperUserId = string.Empty;
     private string? error;
-    private bool importing;
-    private string importMessage = "";
+    private string loadingMessage = string.Empty;
     private bool checkingSession = true;
+    private bool loading;
     private CancellationTokenSource? _cts;
 
-    private bool IsValid =>
-        !string.IsNullOrWhiteSpace(password) &&
-        !string.IsNullOrWhiteSpace(sleeperUserId);
-
-    [Inject]
-    private FantfootDbContext Db { get; set; } = default!;
-
-    [Inject]
-    private NavigationManager Navigation { get; set; } = default!;
-
-    [Inject]
-    private LeagueService LeagueService { get; set; } = default!;
-
-    [Inject]
-    private SleeperClient Sleeper { get; set; } = default!;
-
-    [Inject]
-    private IJSRuntime JS { get; set; } = default!;
+    [Inject] private IJSRuntime JS { get; set; } = default!;
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+    [Inject] private SleeperClient Sleeper { get; set; } = default!;
+    [Inject] private LeagueService LeagueService { get; set; } = default!;
+    [Inject] private FantfootDbContext Db { get; set; } = default!;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
-
         _cts = new CancellationTokenSource();
+
         try
         {
-            var userId = await JS.InvokeAsync<string>("fantfoot.getCookie", _cts.Token, "fantfoot_user");
+            var userId = await JS.InvokeAsync<string?>("fantfoot.getCookie", _cts.Token, "fantfoot_user");
             if (!string.IsNullOrEmpty(userId))
             {
                 var localUser = await Db.LocalUsers.FindAsync([userId], _cts.Token);
                 if (localUser != null)
                 {
-                    Navigation.NavigateTo($"/user/{localUser.SleeperUserId}", replace: true);
+                    Navigation.NavigateTo($"/user/{userId}", replace: true);
                     return;
                 }
             }
         }
-        catch
-        {
-        }
+        catch { }
 
         checkingSession = false;
         StateHasChanged();
@@ -130,100 +96,86 @@
     private async Task SignIn()
     {
         error = null;
+        var userId = sleeperUserId.Trim();
+        if (string.IsNullOrWhiteSpace(userId)) return;
 
-        var trimmedPassword = password.Trim();
-        var trimmedSleeperId = sleeperUserId.Trim();
+        loading = true;
+        loadingMessage = "Looking up your account...";
+        StateHasChanged();
 
-        if (string.IsNullOrWhiteSpace(trimmedPassword) ||
-            string.IsNullOrWhiteSpace(trimmedSleeperId))
+        try
         {
-            error = "All fields are required.";
-            return;
-        }
+            var sleeperUser = await Sleeper.GetUserAsync(userId);
+            if (sleeperUser == null || string.IsNullOrEmpty(sleeperUser.UserId))
+                throw new Exception("Sleeper username not found.");
 
-        var hasher = new PasswordHasher<LocalUser>();
-        var existing = await Db.LocalUsers.FindAsync(trimmedSleeperId);
-        var isNew = false;
+            userId = sleeperUser.UserId;
 
-        if (existing != null)
-        {
-            var result = hasher.VerifyHashedPassword(existing, existing.PasswordHash, trimmedPassword);
-            if (result == PasswordVerificationResult.Failed)
+            loadingMessage = "Checking your leagues...";
+            StateHasChanged();
+
+            var nflState = await Sleeper.GetNflStateAsync();
+            if (nflState == null) throw new Exception("Could not reach the Sleeper API.");
+
+            var authorized = false;
+            foreach (var season in new[] { nflState.Season, (int.Parse(nflState.Season) - 1).ToString() })
             {
-                error = "Invalid password.";
+                var leagues = await Sleeper.GetUserLeaguesAsync(userId, season);
+                if (leagues != null && leagues.Any(l => l.LeagueId == AuthorizedLeagueId))
+                {
+                    authorized = true;
+                    break;
+                }
+            }
+
+            if (!authorized)
+            {
+                error = "You are not a member of the authorized league.";
                 return;
             }
 
-            if (result == PasswordVerificationResult.SuccessRehashNeeded)
+            var existing = await Db.LocalUsers.FindAsync(userId);
+            if (existing == null)
             {
-                existing.PasswordHash = hasher.HashPassword(existing, trimmedPassword);
-            }
-        }
-        else
-        {
-            isNew = true;
-            var localUser = new LocalUser
-            {
-                SleeperUserId = trimmedSleeperId,
-                PasswordHash = hasher.HashPassword(new LocalUser(), trimmedPassword),
-                CreatedAt = DateTime.UtcNow
-            };
-            Db.LocalUsers.Add(localUser);
-        }
-
-        await Db.SaveChangesAsync();
-
-        await JS.InvokeVoidAsync("fantfoot.setCookie", "fantfoot_user", trimmedSleeperId, 7200);
-
-        if (isNew)
-        {
-            importing = true;
-            try
-            {
-                await ImportUserLeaguesAsync(trimmedSleeperId);
-            }
-            catch (Exception ex)
-            {
-                error = $"Leagues imported with errors: {ex.Message}";
-            }
-            finally
-            {
-                importing = false;
-            }
-        }
-
-        Navigation.NavigateTo($"/user/{trimmedSleeperId}");
-    }
-
-    private async Task ImportUserLeaguesAsync(string userId)
-    {
-        var nflState = await Sleeper.GetNflStateAsync();
-        var currentSeason = nflState?.Season;
-        if (string.IsNullOrEmpty(currentSeason)) return;
-
-        var seen = new HashSet<string>();
-
-        async Task ImportSeason(string season)
-        {
-            var leagues = await Sleeper.GetUserLeaguesAsync(userId, season);
-            if (leagues == null) return;
-
-            foreach (var leagueDto in leagues)
-            {
-                if (!seen.Add(leagueDto.LeagueId)) continue;
-
-                importMessage = $"{leagueDto.Name} ({season})";
+                loadingMessage = "Importing your leagues...";
                 StateHasChanged();
 
-                await LeagueService.ImportLeagueAsync(leagueDto.LeagueId);
-                await LeagueService.ImportUsersAsync(leagueDto.LeagueId);
-                await LeagueService.ImportRostersAsync(leagueDto.LeagueId);
+                await ImportUserLeaguesAsync(userId, nflState.Season);
+
+                Db.LocalUsers.Add(new LocalUser { SleeperUserId = userId, CreatedAt = DateTime.UtcNow });
+                await Db.SaveChangesAsync();
+            }
+
+            await JS.InvokeVoidAsync("fantfoot.setCookie", "fantfoot_user", userId, 604800);
+            Navigation.NavigateTo($"/user/{userId}", replace: true);
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task ImportUserLeaguesAsync(string userId, string currentSeason)
+    {
+        var seen = new HashSet<string>();
+        foreach (var season in new[] { currentSeason, (int.Parse(currentSeason) - 1).ToString() })
+        {
+            var leagues = await Sleeper.GetUserLeaguesAsync(userId, season);
+            if (leagues == null) continue;
+            foreach (var league in leagues)
+            {
+                if (!seen.Add(league.LeagueId)) continue;
+                loadingMessage = $"Importing {league.Name}...";
+                StateHasChanged();
+                await LeagueService.ImportLeagueAsync(league.LeagueId);
+                await LeagueService.ImportUsersAsync(league.LeagueId);
+                await LeagueService.ImportRostersAsync(league.LeagueId);
             }
         }
-
-        var season = int.Parse(currentSeason);
-        await ImportSeason(currentSeason);
-        await ImportSeason((season - 1).ToString());
     }
 
     public void Dispose()

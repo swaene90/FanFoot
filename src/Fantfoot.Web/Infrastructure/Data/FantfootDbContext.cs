@@ -25,11 +25,11 @@ public class FantfootDbContext : DbContext
             e.Property(p => p.Id).HasMaxLength(50);
             e.Property(p => p.FirstName).HasMaxLength(50);
             e.Property(p => p.LastName).HasMaxLength(50);
-            e.Property(p => p.Position).HasMaxLength(10);
-            e.Property(p => p.Team).HasMaxLength(10);
-            e.Property(p => p.Status).HasMaxLength(20);
-            e.Property(p => p.InjuryStatus).HasMaxLength(20);
-            e.Property(p => p.College).HasMaxLength(100);
+            e.Property(p => p.Position).HasMaxLength(20);
+            e.Property(p => p.Team).HasMaxLength(20);
+            e.Property(p => p.Status).HasMaxLength(100);
+            e.Property(p => p.InjuryStatus).HasMaxLength(100);
+            e.Property(p => p.College).HasMaxLength(200);
             e.Property(p => p.Metadata);
         });
 
@@ -102,7 +102,6 @@ public class FantfootDbContext : DbContext
         {
             e.HasKey(u => u.SleeperUserId);
             e.Property(u => u.SleeperUserId).HasMaxLength(50);
-            e.Property(u => u.PasswordHash);
         });
     }
 }

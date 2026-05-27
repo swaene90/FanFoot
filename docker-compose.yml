@@ -1,0 +1,17 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5020:8080"
+    env_file:
+      - .env
+    environment:
+      - DataProtection__KeysPath=/data/keys
+    volumes:
+      - fantfoot-data:/data
+    restart: unless-stopped
+
+volumes:
+  fantfoot-data:

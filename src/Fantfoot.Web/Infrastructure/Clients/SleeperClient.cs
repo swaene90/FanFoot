@@ -50,6 +50,11 @@ public class SleeperClient
         return await _http.GetFromJsonAsync<List<SleeperDraftPickDto>>($"draft/{draftId}/picks", JsonOptions, ct);
     }
 
+    public async Task<SleeperUserDto?> GetUserAsync(string username, CancellationToken ct = default)
+    {
+        return await _http.GetFromJsonAsync<SleeperUserDto>($"user/{username}", JsonOptions, ct);
+    }
+
     public async Task<SleeperNflStateDto?> GetNflStateAsync(CancellationToken ct = default)
     {
         return await _http.GetFromJsonAsync<SleeperNflStateDto>("state/nfl", JsonOptions, ct);
