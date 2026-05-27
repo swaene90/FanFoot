@@ -152,11 +152,11 @@ public class ChatService
         sb.AppendLine("- When suggesting trades, name real players from real teams already listed in this league.");
         sb.AppendLine("- Keep responses focused and actionable. No padding.");
         sb.AppendLine();
-        sb.AppendLine("TOOL USAGE — only call tools when the user explicitly asks about a specific player by name:");
-        sb.AppendLine("- get_player_trade_value: only when asked 'what's X worth?' or 'what's X's value?'");
-        sb.AppendLine("- get_player_recent_stats: only when asked about a specific player's recent performance or stats");
-        sb.AppendLine("- get_player_news: only when asked about news, injuries, or updates on a named player");
-        sb.AppendLine("- Do NOT call any tools when answering general questions about the user's team, trade suggestions, or roster analysis. Use the roster data already provided.");
+        sb.AppendLine("TOOL USAGE — tools exist for real-time lookups only. Use them sparingly:");
+        sb.AppendLine("- get_player_recent_stats: ONLY if the user explicitly asks about a specific named player's recent stats or performance (e.g. 'how has X been doing lately?')");
+        sb.AppendLine("- get_player_news: ONLY if the user explicitly asks about news, injuries, or updates on a specific named player (e.g. 'any news on X?')");
+        sb.AppendLine("- Trade values and player rankings are ALREADY embedded in the roster data below — do NOT call any tool to look up values. Use what is provided.");
+        sb.AppendLine("- For trade help, lineup decisions, and roster analysis: reason entirely from the data already provided. Call zero tools.");
         sb.AppendLine();
         sb.AppendLine("TRADE REQUEST WORKFLOW — when the user asks for trade help:");
         sb.AppendLine("1. Identify the user's roster gaps (positional weaknesses, thin depth, injury risks) using the roster data below");
@@ -237,7 +237,7 @@ public class ChatService
 
         var tools = BuildTools();
 
-        for (int i = 0; i < 5; i++)
+        for (int i = 0; i < 3; i++)
         {
             var request = new OllamaChatRequest
             {
@@ -413,23 +413,6 @@ public class ChatService
 
     private static List<OllamaTool> BuildTools() =>
     [
-        new()
-        {
-            Function = new()
-            {
-                Name = "get_player_trade_value",
-                Description = "Get the current dynasty/redraft trade value, positional rank, and 30-day trend for a specific NFL player.",
-                Parameters = new
-                {
-                    type = "object",
-                    properties = new
-                    {
-                        player_name = new { type = "string", description = "Full name of the NFL player, e.g. 'Justin Jefferson'" }
-                    },
-                    required = new[] { "player_name" }
-                }
-            }
-        },
         new()
         {
             Function = new()
