@@ -163,8 +163,9 @@ public class ChatService
         sb.AppendLine("2. Identify real trade assets the user can offer: players that are surplus, sell-high, or redundant given their depth. The tier labels in the roster data reflect relative value — only offer players whose tier is comparable to what you're asking for in return.");
         if (isDynasty)
         {
-            sb.AppendLine("   - DYNASTY: Draft picks are also tradeable assets. Use the pick holdings below. A 1st round pick from a weak team (projected top-3 pick) is worth significantly more than a 1st from a strong team. Consider packaging picks + players to bridge value gaps. Picks are especially useful when the user lacks enough player surplus to match a target's value.");
-            sb.AppendLine("   - Also consider the upcoming draft: if the user needs a specific position long-term, sometimes acquiring a high pick to draft that position is better than overpaying in a trade.");
+            sb.AppendLine("   - DYNASTY: Draft picks are tradeable assets for the annual ROOKIE DRAFT only — they select current-year rookies (YearsExp=0), not veterans. Veterans not on a roster are waiver-wire claims, not draftable. Use the pick holdings below; a 1st from a weak team (projected top-3 pick) is worth far more than a 1st from a contender.");
+            sb.AppendLine("   - Consider packaging picks + players to bridge value gaps. A high rookie pick can be the difference-maker when the user can't match a target's player value alone.");
+            sb.AppendLine("   - The ROOKIES AVAILABLE section below shows who could be had with those picks. Factor that into whether a pick is worth trading away.");
         }
         sb.AppendLine("3. FAIRNESS CHECK (critical): For every proposed trade, verify it is realistic. A 'bench-level' or 'low-end' player cannot fetch an 'elite' or 'top-3' player. The value of what the user gives must roughly match the value of what they receive — use the tier labels to compare. If the user doesn't have enough surplus value to get what they need, say so honestly and suggest realistic alternatives.");
         sb.AppendLine("4. Find specific players on OTHER teams in this league that address those gaps AND that the other manager might realistically want to trade away (e.g. they have surplus depth at that position, or the player is aging/injured)");
@@ -475,8 +476,8 @@ public class ChatService
             .Select((t, i) => (RosterId: int.Parse(t.Id.Split('_').Last()), Pos: i + 1))
             .ToDictionary(x => x.RosterId, x => x.Pos);
 
-        var sb = new System.Text.StringBuilder("\n\nDRAFT PICK HOLDINGS (dynasty — picks available for trade packages):");
-        sb.AppendLine($"\n(Estimated {baseYear} draft order based on current standings: #1 = worst record)");
+        var sb = new System.Text.StringBuilder("\n\nDRAFT PICK HOLDINGS (dynasty rookie draft — picks are used to select current-year rookies only):");
+        sb.AppendLine($"\n(Estimated {baseYear} draft order based on current standings: #1 = worst record, i.e. likely the best rookie prospect)");
 
         foreach (var rosterId in rosterIds.OrderBy(id => rosterToName.GetValueOrDefault(id, "")))
         {
@@ -505,23 +506,60 @@ public class ChatService
                         (p.Position == "QB" || p.Position == "RB" || p.Position == "WR" || p.Position == "TE"))
             .ToListAsync();
 
-        var notable = freeAgents
+        var scored = freeAgents
             .Select(p => (Player: p, Val: _valuesBySleeperId.GetValueOrDefault(p.Id)))
             .Where(x => x.Val != null)
-            .OrderBy(x => x.Val!.PositionRank)
-            .GroupBy(x => x.Player.Position)
-            .SelectMany(g => g.Take(5))
-            .OrderBy(x => x.Val!.OverallRank)
             .ToList();
 
-        if (notable.Count == 0) return "";
+        if (scored.Count == 0) return "";
 
-        var sb = new System.Text.StringBuilder("\n\nNOTABLE FREE AGENTS (available to add/drop):");
-        foreach (var (player, val) in notable)
+        var sb = new System.Text.StringBuilder();
+
+        if (isDynasty)
         {
-            var suffix = PlayerValueSuffix(player.Id, isDynasty);
-            sb.Append($"\n  {player.FirstName} {player.LastName} ({player.Position}, {player.Team ?? "FA"}{suffix})");
+            // Rookies (YearsExp == 0) are draftable with picks; veterans are waiver-only
+            var rookies = scored
+                .Where(x => x.Player.YearsExp == 0)
+                .OrderBy(x => x.Val!.OverallRank)
+                .Take(15)
+                .ToList();
+
+            var veterans = scored
+                .Where(x => x.Player.YearsExp != 0)
+                .OrderBy(x => x.Val!.PositionRank)
+                .GroupBy(x => x.Player.Position)
+                .SelectMany(g => g.Take(3))
+                .OrderBy(x => x.Val!.OverallRank)
+                .ToList();
+
+            if (rookies.Count > 0)
+            {
+                sb.AppendLine("\n\nROOKIES AVAILABLE (draftable with picks OR waivered if undrafted):");
+                foreach (var (player, val) in rookies)
+                    sb.Append($"\n  {player.FirstName} {player.LastName} ({player.Position}, {player.Team ?? "?"}{PlayerValueSuffix(player.Id, true)})");
+            }
+
+            if (veterans.Count > 0)
+            {
+                sb.AppendLine("\n\nVETERAN FREE AGENTS (waiver wire only — NOT draftable):");
+                foreach (var (player, val) in veterans)
+                    sb.Append($"\n  {player.FirstName} {player.LastName} ({player.Position}, {player.Team ?? "FA"}{PlayerValueSuffix(player.Id, true)})");
+            }
         }
+        else
+        {
+            var notable = scored
+                .OrderBy(x => x.Val!.PositionRank)
+                .GroupBy(x => x.Player.Position)
+                .SelectMany(g => g.Take(5))
+                .OrderBy(x => x.Val!.OverallRank)
+                .ToList();
+
+            sb.AppendLine("\n\nNOTABLE FREE AGENTS (available to add/drop):");
+            foreach (var (player, val) in notable)
+                sb.Append($"\n  {player.FirstName} {player.LastName} ({player.Position}, {player.Team ?? "FA"}{PlayerValueSuffix(player.Id, false)})");
+        }
+
         return sb.ToString();
     }
 
