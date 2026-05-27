@@ -161,7 +161,12 @@ public class ChatService
         sb.AppendLine("TRADE REQUEST WORKFLOW — when the user asks for trade help:");
         sb.AppendLine("1. Identify the user's roster gaps (positional weaknesses, thin depth, injury risks) using the roster data below");
         sb.AppendLine("2. Identify real trade assets the user can offer: players that are surplus, sell-high, or redundant given their depth. The tier labels in the roster data reflect relative value — only offer players whose tier is comparable to what you're asking for in return.");
-        sb.AppendLine("3. FAIRNESS CHECK (critical): For every proposed trade, verify it is realistic. A 'bench-level' or 'low-end' player cannot fetch an 'elite' or 'top-3' player. The value of what the user gives must roughly match the value of what they receive — use the tier labels (e.g. 'top-3 RB', 'mid-tier WR2', 'bench-level RB') to compare. If the user doesn't have enough surplus value to get what they need, say so honestly and suggest realistic alternatives.");
+        if (isDynasty)
+        {
+            sb.AppendLine("   - DYNASTY: Draft picks are also tradeable assets. Use the pick holdings below. A 1st round pick from a weak team (projected top-3 pick) is worth significantly more than a 1st from a strong team. Consider packaging picks + players to bridge value gaps. Picks are especially useful when the user lacks enough player surplus to match a target's value.");
+            sb.AppendLine("   - Also consider the upcoming draft: if the user needs a specific position long-term, sometimes acquiring a high pick to draft that position is better than overpaying in a trade.");
+        }
+        sb.AppendLine("3. FAIRNESS CHECK (critical): For every proposed trade, verify it is realistic. A 'bench-level' or 'low-end' player cannot fetch an 'elite' or 'top-3' player. The value of what the user gives must roughly match the value of what they receive — use the tier labels to compare. If the user doesn't have enough surplus value to get what they need, say so honestly and suggest realistic alternatives.");
         sb.AppendLine("4. Find specific players on OTHER teams in this league that address those gaps AND that the other manager might realistically want to trade away (e.g. they have surplus depth at that position, or the player is aging/injured)");
         sb.AppendLine("5. Propose 2-3 concrete trade packages. For each, explicitly state why BOTH sides would benefit — what does the other manager gain that they need?");
         sb.AppendLine();
@@ -197,7 +202,10 @@ public class ChatService
             AppendRoster(sb, team, playerMap, isDynasty, null);
         }
 
-        sb.Append(await BuildPicksContextAsync(leagueId, teams));
+        if (isDynasty)
+            sb.Append(await BuildDynastyPicksContextAsync(leagueId, teams));
+        else
+            sb.Append(await BuildPicksContextAsync(leagueId, teams));
         sb.Append(await BuildFreeAgentsContextAsync(allPlayerIds, isDynasty));
         return sb.ToString();
     }
@@ -427,6 +435,57 @@ public class ChatService
                 sb.Append($" traded away {string.Join(", ", desc)};");
             }
         }
+        return sb.ToString();
+    }
+
+    private async Task<string> BuildDynastyPicksContextAsync(string leagueId, List<Team> teams)
+    {
+        var tradedPicks = await _sleeper.GetTradedPicksAsync(leagueId);
+        var state = await _sleeper.GetNflStateAsync();
+
+        int baseYear = DateTime.UtcNow.Year;
+        if (state?.Season != null && int.TryParse(state.Season, out var sy)) baseYear = sy;
+
+        var rosterIds = teams.Select(t => int.Parse(t.Id.Split('_').Last())).ToList();
+        var rosterToName = teams.ToDictionary(t => int.Parse(t.Id.Split('_').Last()), t => t.TeamName);
+
+        var seasons = Enumerable.Range(baseYear, 3).Select(y => y.ToString()).ToList();
+        int maxRound = tradedPicks?.Any() == true ? Math.Max(tradedPicks.Max(p => p.Round), 4) : 4;
+
+        // Current ownership: last entry per (season, round, originalRosterId) wins
+        var currentOwner = new Dictionary<(string, int, int), int>();
+        if (tradedPicks != null)
+            foreach (var pick in tradedPicks)
+                currentOwner[(pick.Season, pick.Round, pick.RosterId)] = pick.OwnerId;
+
+        // Build complete pick holdings per team
+        var holdings = rosterIds.ToDictionary(id => id, _ => new List<string>());
+        foreach (var season in seasons)
+            for (int round = 1; round <= maxRound; round++)
+                foreach (var rosterId in rosterIds)
+                {
+                    var holder = currentOwner.TryGetValue((season, round, rosterId), out var owner) ? owner : rosterId;
+                    if (holdings.ContainsKey(holder))
+                        holdings[holder].Add($"{season} R{round}");
+                }
+
+        // Estimate draft order from standings (worst record = earliest pick)
+        var draftPos = teams
+            .OrderBy(t => t.Wins).ThenBy(t => t.PointsFor)
+            .Select((t, i) => (RosterId: int.Parse(t.Id.Split('_').Last()), Pos: i + 1))
+            .ToDictionary(x => x.RosterId, x => x.Pos);
+
+        var sb = new System.Text.StringBuilder("\n\nDRAFT PICK HOLDINGS (dynasty — picks available for trade packages):");
+        sb.AppendLine($"\n(Estimated {baseYear} draft order based on current standings: #1 = worst record)");
+
+        foreach (var rosterId in rosterIds.OrderBy(id => rosterToName.GetValueOrDefault(id, "")))
+        {
+            var teamName = rosterToName.GetValueOrDefault(rosterId, $"Roster {rosterId}");
+            var pickList = holdings[rosterId];
+            var pos = draftPos.TryGetValue(rosterId, out var p) ? $" [est. #{p} pick in {baseYear}]" : "";
+            sb.Append($"\n  {teamName}{pos}: {(pickList.Count > 0 ? string.Join(", ", pickList.OrderBy(x => x)) : "no picks held")}");
+        }
+
         return sb.ToString();
     }
 
