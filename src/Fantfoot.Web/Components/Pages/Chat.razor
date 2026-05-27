@@ -21,7 +21,14 @@
     </div>
 
     <div class="flex-grow-1 overflow-y-auto p-3 d-flex flex-column gap-2" @ref="messagesContainer">
-        @if (messages.Count == 0)
+        @if (initializing)
+        {
+            <div class="text-center mt-5">
+                <div class="spinner-border text-primary" role="status"></div>
+                <p class="text-muted mt-2">Loading league context...</p>
+            </div>
+        }
+        else if (messages.Count == 0)
         {
             <p class="text-muted text-center mt-5">Ask about your teams, players, or matchups.</p>
         }
@@ -68,6 +75,7 @@
     [Inject] private IJSRuntime JS { get; set; } = default!;
 
     private bool loading;
+    private bool initializing;
     private string input = "";
     private string? userId;
     private string selectedLeagueId = "";
@@ -76,30 +84,40 @@
     private List<ChatMessage> messages = [];
     private List<League> leagues = [];
     private ElementReference messagesContainer;
+    private bool _initialized;
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (!firstRender || _initialized) return;
+        _initialized = true;
+
+        initializing = true;
+        StateHasChanged();
+
         userId = await JS.InvokeAsync<string?>("fantfoot.getCookie", "fantfoot_user");
-        if (string.IsNullOrEmpty(userId)) return;
-
-        var teams = await Db.Teams.Where(t => t.OwnerId == userId).ToListAsync();
-        var leagueIds = teams.Select(t => t.LeagueId).Distinct().ToList();
-        leagues = await Db.Leagues
-            .Where(l => leagueIds.Contains(l.Id))
-            .OrderByDescending(l => l.Season)
-            .ThenBy(l => l.Name)
-            .ToListAsync();
-
-        // Default: use the most recent league context so trade suggestions have full rosters
-        if (leagues.Count > 0)
+        if (!string.IsNullOrEmpty(userId))
         {
-            selectedLeagueId = leagues[0].Id;
-            systemPrompt = await ChatService.GetLeagueContextAsync(selectedLeagueId, userId);
+            var teams = await Db.Teams.Where(t => t.OwnerId == userId).ToListAsync();
+            var leagueIds = teams.Select(t => t.LeagueId).Distinct().ToList();
+            leagues = await Db.Leagues
+                .Where(l => leagueIds.Contains(l.Id))
+                .OrderByDescending(l => l.Season)
+                .ThenBy(l => l.Name)
+                .ToListAsync();
+
+            if (leagues.Count > 0)
+            {
+                selectedLeagueId = leagues[0].Id;
+                systemPrompt = await ChatService.GetLeagueContextAsync(selectedLeagueId, userId);
+            }
+            else
+            {
+                systemPrompt = await ChatService.GetUserContextAsync(userId);
+            }
         }
-        else
-        {
-            systemPrompt = await ChatService.GetUserContextAsync(userId);
-        }
+
+        initializing = false;
+        StateHasChanged();
     }
 
     private async Task OnLeagueChanged()

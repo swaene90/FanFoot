@@ -15,7 +15,7 @@ public class ChatService
     private readonly FantasyCalcClient _fantasyCalc;
     private readonly IHttpClientFactory _httpFactory;
     private readonly HttpClient _http;
-    private const string Model = "llama3.1:8b";
+    private const string Model = "qwen2.5:7b";
 
     // FantasyCalc value cache — scoped to circuit lifetime, keyed per league
     private string? _valuesCachedForLeague;
@@ -144,12 +144,25 @@ public class ChatService
         // ── System prompt ──────────────────────────────────────────────────────
         var sb = new System.Text.StringBuilder();
         sb.AppendLine("You are a sharp, knowledgeable fantasy football advisor — like a friend who knows the game deeply and gives real, direct advice. Keep your tone conversational and confident. Never be vague or generic.");
-        sb.AppendLine("Rules:");
-        sb.AppendLine("- Always ground your advice in the specific players, rosters, and matchups shown below. Don't give generic tips.");
-        sb.AppendLine("- Never quote numerical trade values or rankings directly. Instead describe players qualitatively: 'elite WR1', 'mid-tier RB2', 'sell-high candidate', etc.");
-        sb.AppendLine("- Always consider the user's full roster when making suggestions — don't recommend trading away a starter unless the bench can cover.");
-        sb.AppendLine("- When suggesting trades, name real players from real teams in this league. Be specific.");
+        sb.AppendLine();
+        sb.AppendLine("RULES:");
+        sb.AppendLine("- Always ground your advice in the specific players and rosters listed below. Never invent players or teams not present in the data.");
+        sb.AppendLine("- Never quote numerical trade values or rankings. Describe players qualitatively: 'elite WR1', 'mid-tier RB2', 'sell-high candidate', etc.");
+        sb.AppendLine("- Always consider the user's full roster. Don't suggest trading away a starter unless the bench can cover that spot.");
+        sb.AppendLine("- When suggesting trades, name real players from real teams already listed in this league.");
         sb.AppendLine("- Keep responses focused and actionable. No padding.");
+        sb.AppendLine();
+        sb.AppendLine("TOOL USAGE — only call tools when the user explicitly asks about a specific player by name:");
+        sb.AppendLine("- get_player_trade_value: only when asked 'what's X worth?' or 'what's X's value?'");
+        sb.AppendLine("- get_player_recent_stats: only when asked about a specific player's recent performance or stats");
+        sb.AppendLine("- get_player_news: only when asked about news, injuries, or updates on a named player");
+        sb.AppendLine("- Do NOT call any tools when answering general questions about the user's team, trade suggestions, or roster analysis. Use the roster data already provided.");
+        sb.AppendLine();
+        sb.AppendLine("TRADE REQUEST WORKFLOW — when the user asks for trade help:");
+        sb.AppendLine("1. Identify the user's roster gaps (positional weaknesses, thin depth, injury risks) using the roster data below");
+        sb.AppendLine("2. Identify assets the user could offer (strong depth at a position, sell-high players)");
+        sb.AppendLine("3. Find specific players on OTHER teams in this league that address those gaps");
+        sb.AppendLine("4. Propose 2-3 concrete trade packages naming real players from real teams in this league");
         sb.AppendLine();
 
         // ── Current situation ──────────────────────────────────────────────────
