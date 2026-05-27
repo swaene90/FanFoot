@@ -26,6 +26,9 @@
             },
             removeCookie: function (name) {
                 document.cookie = name + "=; path=/; max-age=0";
+            },
+            scrollToBottom: function (el) {
+                if (el) el.scrollTop = el.scrollHeight;
             }
         };
     </script>

@@ -1,0 +1,239 @@
+@page "/chat"
+@using Fantfoot.Web.Services
+@using Fantfoot.Infrastructure.Data
+@using Fantfoot.Domain
+@using Microsoft.EntityFrameworkCore
+
+<PageTitle>AI Chat</PageTitle>
+
+<div class="d-flex flex-column" style="height: calc(100vh - 3.5rem);">
+    <div class="p-3 border-bottom d-flex align-items-center gap-3 flex-wrap">
+        <h4 class="mb-0 me-2">AI Assistant</h4>
+        @if (leagues.Count > 0)
+        {
+            <select class="form-select form-select-sm w-auto" @bind="selectedLeagueId" @bind:after="OnLeagueChanged">
+                <option value="">All My Teams</option>
+                @foreach (var league in leagues)
+                {
+                    <option value="@league.Id">@league.Name (@league.Season)</option>
+                }
+            </select>
+        }
+        <div class="ms-auto d-flex gap-2">
+            @if (sessions.Count > 0)
+            {
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button"
+                            data-bs-toggle="dropdown" aria-expanded="false">
+                        History
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end" style="min-width: 280px; max-height: 400px; overflow-y: auto;">
+                        @foreach (var session in sessions)
+                        {
+                            <li>
+                                <button class="dropdown-item text-truncate py-2"
+                                        style="max-width: 280px;"
+                                        @onclick="() => LoadSession(session)">
+                                    <div class="text-truncate fw-medium" style="font-size: .85rem;">@session.Title</div>
+                                    <div class="text-muted" style="font-size: .75rem;">@session.UpdatedAt.LocalDateTime.ToString("MMM d, h:mm tt")</div>
+                                </button>
+                            </li>
+                            <li><hr class="dropdown-divider my-0"></li>
+                        }
+                    </ul>
+                </div>
+            }
+            @if (messages.Count > 0)
+            {
+                <button class="btn btn-sm btn-outline-secondary" @onclick="NewChat">New Chat</button>
+            }
+        </div>
+    </div>
+
+    <div class="flex-grow-1 overflow-y-auto p-3 d-flex flex-column gap-2" @ref="messagesContainer">
+        @if (initializing)
+        {
+            <div class="text-center mt-5">
+                <div class="spinner-border text-primary" role="status"></div>
+                <p class="text-muted mt-2">Loading league context...</p>
+            </div>
+        }
+        else if (messages.Count == 0)
+        {
+            <p class="text-muted text-center mt-5">Ask about your teams, players, or matchups.</p>
+        }
+        @foreach (var msg in messages)
+        {
+            <div class="d-flex @(msg.IsUser ? "justify-content-end" : "justify-content-start")">
+                <div class="px-3 py-2 rounded-3 @(msg.IsUser ? "bg-primary text-white" : "bg-light text-dark")"
+                     style="max-width: 70%; white-space: pre-wrap; word-break: break-word; font-size: .9rem;">
+                    @msg.Content
+                </div>
+            </div>
+        }
+        @if (loading)
+        {
+            <div class="d-flex justify-content-start">
+                <div class="px-3 py-2 rounded-3 bg-light text-dark" style="font-size: .9rem;">
+                    <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                    Thinking...
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="p-3 border-top">
+        <div class="input-group">
+            <input type="text" class="form-control"
+                   placeholder="Ask anything..."
+                   @bind="input"
+                   @bind:event="oninput"
+                   @onkeydown="HandleKeyDown"
+                   disabled="@loading" />
+            <button class="btn btn-primary"
+                    @onclick="Send"
+                    disabled="@(string.IsNullOrWhiteSpace(input) || loading)">
+                Send
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Inject] private ChatService ChatService { get; set; } = default!;
+    [Inject] private FantfootDbContext Db { get; set; } = default!;
+    [Inject] private IJSRuntime JS { get; set; } = default!;
+
+    private bool loading;
+    private bool initializing;
+    private string input = "";
+    private string? userId;
+    private string selectedLeagueId = "";
+    private string? systemPrompt;
+    private string currentSessionId = Guid.NewGuid().ToString();
+    private List<(string Role, string Content)> history = [];
+    private List<ChatMessage> messages = [];
+    private List<League> leagues = [];
+    private List<ChatSession> sessions = [];
+    private ElementReference messagesContainer;
+    private bool _initialized;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _initialized) return;
+        _initialized = true;
+
+        initializing = true;
+        StateHasChanged();
+
+        userId = await JS.InvokeAsync<string?>("fantfoot.getCookie", "fantfoot_user");
+        if (!string.IsNullOrEmpty(userId))
+        {
+            var teams = await Db.Teams.Where(t => t.OwnerId == userId).ToListAsync();
+            var leagueIds = teams.Select(t => t.LeagueId).Distinct().ToList();
+            leagues = await Db.Leagues
+                .Where(l => leagueIds.Contains(l.Id))
+                .OrderByDescending(l => l.Season)
+                .ThenBy(l => l.Name)
+                .ToListAsync();
+
+            if (leagues.Count > 0)
+            {
+                selectedLeagueId = leagues[0].Id;
+                systemPrompt = await ChatService.GetLeagueContextAsync(selectedLeagueId, userId);
+            }
+            else
+            {
+                systemPrompt = await ChatService.GetUserContextAsync(userId);
+            }
+
+            sessions = await ChatService.GetSessionsAsync(userId);
+        }
+
+        initializing = false;
+        StateHasChanged();
+    }
+
+    private async Task OnLeagueChanged()
+    {
+        messages.Clear();
+        history.Clear();
+        currentSessionId = Guid.NewGuid().ToString();
+
+        systemPrompt = string.IsNullOrEmpty(selectedLeagueId)
+            ? await ChatService.GetUserContextAsync(userId!)
+            : await ChatService.GetLeagueContextAsync(selectedLeagueId, userId);
+    }
+
+    private void NewChat()
+    {
+        messages.Clear();
+        history.Clear();
+        currentSessionId = Guid.NewGuid().ToString();
+    }
+
+    private void LoadSession(ChatSession session)
+    {
+        history = ChatService.DeserializeHistory(session.MessagesJson);
+        messages = history.Select(h => new ChatMessage(h.Content, h.Role == "user")).ToList();
+        currentSessionId = session.Id;
+        StateHasChanged();
+        _ = ScrollToBottom();
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.ShiftKey)
+            await Send();
+    }
+
+    private async Task Send()
+    {
+        var question = input.Trim();
+        if (string.IsNullOrWhiteSpace(question) || loading) return;
+
+        input = "";
+        messages.Add(new ChatMessage(question, true));
+        history.Add(("user", question));
+        loading = true;
+        StateHasChanged();
+        await ScrollToBottom();
+
+        try
+        {
+            var prompt = systemPrompt ?? "You are an AI assistant for a fantasy football tracker app.";
+            var answer = await ChatService.AskAsync(prompt, history);
+            history.Add(("assistant", answer));
+            messages.Add(new ChatMessage(answer, false));
+
+            if (!string.IsNullOrEmpty(userId))
+            {
+                var title = history.FirstOrDefault(h => h.Role == "user").Content ?? question;
+                await ChatService.SaveSessionAsync(currentSessionId, userId, string.IsNullOrEmpty(selectedLeagueId) ? null : selectedLeagueId, title, history);
+                sessions = await ChatService.GetSessionsAsync(userId);
+            }
+        }
+        catch (Exception ex)
+        {
+            messages.Add(new ChatMessage($"Error: {ex.Message}", false));
+        }
+        finally
+        {
+            loading = false;
+            StateHasChanged();
+            await ScrollToBottom();
+        }
+    }
+
+    private async Task ScrollToBottom()
+    {
+        try { await JS.InvokeVoidAsync("fantfoot.scrollToBottom", messagesContainer); }
+        catch { }
+    }
+
+    private class ChatMessage(string content, bool isUser)
+    {
+        public string Content { get; } = content;
+        public bool IsUser { get; } = isUser;
+    }
+}
