@@ -21,6 +21,17 @@ public static class ServiceExtensions
             client.DefaultRequestHeaders.Add("User-Agent", "Fantfoot/1.0");
         });
 
+        services.AddHttpClient<FantasyCalcClient>(client =>
+        {
+            client.BaseAddress = new Uri("https://api.fantasycalc.com/");
+            client.DefaultRequestHeaders.Add("User-Agent", "Fantfoot/1.0");
+        });
+
+        services.AddHttpClient("ESPN", client =>
+        {
+            client.BaseAddress = new Uri("https://site.api.espn.com/");
+        });
+
         services.AddScoped<LeagueService>();
 
         return services;

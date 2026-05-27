@@ -60,6 +60,13 @@ public class SleeperClient
         return await _http.GetFromJsonAsync<SleeperNflStateDto>("state/nfl", JsonOptions, ct);
     }
 
+    public async Task<Dictionary<string, Dictionary<string, JsonElement>>?> GetWeeklyStatsAsync(
+        string season, int week, CancellationToken ct = default)
+    {
+        return await _http.GetFromJsonAsync<Dictionary<string, Dictionary<string, JsonElement>>>(
+            $"stats/nfl/regular/{season}/{week}", JsonOptions, ct);
+    }
+
     public async Task<List<SleeperLeagueDto>?> GetUserLeaguesAsync(string userId, string season, CancellationToken ct = default)
     {
         return await _http.GetFromJsonAsync<List<SleeperLeagueDto>>($"user/{userId}/leagues/nfl/{season}", JsonOptions, ct);

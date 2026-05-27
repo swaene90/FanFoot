@@ -1,0 +1,163 @@
+@page "/chat"
+@using Fantfoot.Web.Services
+@using Fantfoot.Infrastructure.Data
+@using Microsoft.EntityFrameworkCore
+
+<PageTitle>AI Chat</PageTitle>
+
+<div class="d-flex flex-column" style="height: calc(100vh - 3.5rem);">
+    <div class="p-3 border-bottom d-flex align-items-center gap-3">
+        <h4 class="mb-0 me-2">AI Assistant</h4>
+        @if (leagues.Count > 0)
+        {
+            <select class="form-select form-select-sm w-auto" @bind="selectedLeagueId" @bind:after="OnLeagueChanged">
+                <option value="">All My Teams</option>
+                @foreach (var league in leagues)
+                {
+                    <option value="@league.Id">@league.Name (@league.Season)</option>
+                }
+            </select>
+        }
+    </div>
+
+    <div class="flex-grow-1 overflow-y-auto p-3 d-flex flex-column gap-2" @ref="messagesContainer">
+        @if (messages.Count == 0)
+        {
+            <p class="text-muted text-center mt-5">Ask about your teams, players, or matchups.</p>
+        }
+        @foreach (var msg in messages)
+        {
+            <div class="d-flex @(msg.IsUser ? "justify-content-end" : "justify-content-start")">
+                <div class="px-3 py-2 rounded-3 @(msg.IsUser ? "bg-primary text-white" : "bg-light text-dark")"
+                     style="max-width: 70%; white-space: pre-wrap; word-break: break-word; font-size: .9rem;">
+                    @msg.Content
+                </div>
+            </div>
+        }
+        @if (loading)
+        {
+            <div class="d-flex justify-content-start">
+                <div class="px-3 py-2 rounded-3 bg-light text-dark" style="font-size: .9rem;">
+                    <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                    Thinking...
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="p-3 border-top">
+        <div class="input-group">
+            <input type="text" class="form-control"
+                   placeholder="Ask anything..."
+                   @bind="input"
+                   @bind:event="oninput"
+                   @onkeydown="HandleKeyDown"
+                   disabled="@loading" />
+            <button class="btn btn-primary"
+                    @onclick="Send"
+                    disabled="@(string.IsNullOrWhiteSpace(input) || loading)">
+                Send
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Inject] private ChatService ChatService { get; set; } = default!;
+    [Inject] private FantfootDbContext Db { get; set; } = default!;
+    [Inject] private IJSRuntime JS { get; set; } = default!;
+
+    private bool loading;
+    private string input = "";
+    private string? userId;
+    private string selectedLeagueId = "";
+    private string? systemPrompt;
+    private List<(string Role, string Content)> history = [];
+    private List<ChatMessage> messages = [];
+    private List<League> leagues = [];
+    private ElementReference messagesContainer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        userId = await JS.InvokeAsync<string?>("fantfoot.getCookie", "fantfoot_user");
+        if (string.IsNullOrEmpty(userId)) return;
+
+        var teams = await Db.Teams.Where(t => t.OwnerId == userId).ToListAsync();
+        var leagueIds = teams.Select(t => t.LeagueId).Distinct().ToList();
+        leagues = await Db.Leagues
+            .Where(l => leagueIds.Contains(l.Id))
+            .OrderByDescending(l => l.Season)
+            .ThenBy(l => l.Name)
+            .ToListAsync();
+
+        // Default: use the most recent league context so trade suggestions have full rosters
+        if (leagues.Count > 0)
+        {
+            selectedLeagueId = leagues[0].Id;
+            systemPrompt = await ChatService.GetLeagueContextAsync(selectedLeagueId, userId);
+        }
+        else
+        {
+            systemPrompt = await ChatService.GetUserContextAsync(userId);
+        }
+    }
+
+    private async Task OnLeagueChanged()
+    {
+        messages.Clear();
+        history.Clear();
+
+        systemPrompt = string.IsNullOrEmpty(selectedLeagueId)
+            ? await ChatService.GetUserContextAsync(userId!)
+            : await ChatService.GetLeagueContextAsync(selectedLeagueId, userId);
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.ShiftKey)
+            await Send();
+    }
+
+    private async Task Send()
+    {
+        var question = input.Trim();
+        if (string.IsNullOrWhiteSpace(question) || loading) return;
+
+        input = "";
+        messages.Add(new ChatMessage(question, true));
+        history.Add(("user", question));
+        loading = true;
+        StateHasChanged();
+        await ScrollToBottom();
+
+        try
+        {
+            var prompt = systemPrompt ?? "You are an AI assistant for a fantasy football tracker app.";
+            var answer = await ChatService.AskAsync(prompt, history);
+            history.Add(("assistant", answer));
+            messages.Add(new ChatMessage(answer, false));
+        }
+        catch (Exception ex)
+        {
+            messages.Add(new ChatMessage($"Error: {ex.Message}", false));
+        }
+        finally
+        {
+            loading = false;
+            StateHasChanged();
+            await ScrollToBottom();
+        }
+    }
+
+    private async Task ScrollToBottom()
+    {
+        try { await JS.InvokeVoidAsync("fantfoot.scrollToBottom", messagesContainer); }
+        catch { }
+    }
+
+    private class ChatMessage(string content, bool isUser)
+    {
+        public string Content { get; } = content;
+        public bool IsUser { get; } = isUser;
+    }
+}
