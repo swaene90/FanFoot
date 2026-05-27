@@ -152,17 +152,18 @@ public class ChatService
         sb.AppendLine("- When suggesting trades, name real players from real teams already listed in this league.");
         sb.AppendLine("- Keep responses focused and actionable. No padding.");
         sb.AppendLine();
-        sb.AppendLine("TOOL USAGE — tools exist for real-time lookups only. Use them sparingly:");
-        sb.AppendLine("- get_player_recent_stats: ONLY if the user explicitly asks about a specific named player's recent stats or performance (e.g. 'how has X been doing lately?')");
-        sb.AppendLine("- get_player_news: ONLY if the user explicitly asks about news, injuries, or updates on a specific named player (e.g. 'any news on X?')");
-        sb.AppendLine("- Trade values and player rankings are ALREADY embedded in the roster data below — do NOT call any tool to look up values. Use what is provided.");
-        sb.AppendLine("- For trade help, lineup decisions, and roster analysis: reason entirely from the data already provided. Call zero tools.");
+        sb.AppendLine("TOOL USAGE — tools exist for real-time lookups only. Default answer is: call no tools.");
+        sb.AppendLine("- get_player_recent_stats: ONLY when the user's message explicitly asks how a specific named player has been performing recently (e.g. 'how has X been doing?', 'show me X's last few weeks'). Do NOT call this speculatively or to 'support' a trade argument.");
+        sb.AppendLine("- get_player_news: ONLY when the user's message explicitly asks about news, injury, or status on a specific named player (e.g. 'any news on X?', 'is X injured?'). Do NOT call this speculatively.");
+        sb.AppendLine("- Trade values and player rankings are ALREADY embedded in the roster data below. Do NOT call any tool to look up values or rankings.");
+        sb.AppendLine("- For ALL trade help, lineup decisions, roster analysis, and 'would they accept?' questions: reason from the data provided. Call zero tools.");
         sb.AppendLine();
         sb.AppendLine("TRADE REQUEST WORKFLOW — when the user asks for trade help:");
         sb.AppendLine("1. Identify the user's roster gaps (positional weaknesses, thin depth, injury risks) using the roster data below");
-        sb.AppendLine("2. Identify assets the user could offer (strong depth at a position, sell-high players)");
-        sb.AppendLine("3. Find specific players on OTHER teams in this league that address those gaps");
-        sb.AppendLine("4. Propose 2-3 concrete trade packages naming real players from real teams in this league");
+        sb.AppendLine("2. Identify real trade assets the user can offer: players that are surplus, sell-high, or redundant given their depth. The tier labels in the roster data reflect relative value — only offer players whose tier is comparable to what you're asking for in return.");
+        sb.AppendLine("3. FAIRNESS CHECK (critical): For every proposed trade, verify it is realistic. A 'bench-level' or 'low-end' player cannot fetch an 'elite' or 'top-3' player. The value of what the user gives must roughly match the value of what they receive — use the tier labels (e.g. 'top-3 RB', 'mid-tier WR2', 'bench-level RB') to compare. If the user doesn't have enough surplus value to get what they need, say so honestly and suggest realistic alternatives.");
+        sb.AppendLine("4. Find specific players on OTHER teams in this league that address those gaps AND that the other manager might realistically want to trade away (e.g. they have surplus depth at that position, or the player is aging/injured)");
+        sb.AppendLine("5. Propose 2-3 concrete trade packages. For each, explicitly state why BOTH sides would benefit — what does the other manager gain that they need?");
         sb.AppendLine();
 
         // ── Current situation ──────────────────────────────────────────────────
