@@ -244,7 +244,8 @@ public class ChatService
                 Model = Model,
                 Messages = [.. messages],
                 Tools = tools,
-                Stream = false
+                Stream = false,
+                Options = new Dictionary<string, object> { ["num_ctx"] = 8192 }
             };
 
             var response = await _http.PostAsJsonAsync("api/chat", request);
@@ -363,9 +364,27 @@ public class ChatService
     private string PlayerValueSuffix(string sleeperId, bool isDynasty)
     {
         if (!_valuesBySleeperId.TryGetValue(sleeperId, out var val)) return "";
-        var value = isDynasty ? val.Value : (val.RedraftValue ?? val.Value);
-        var trend = val.Trend30Day switch { > 300 => "↑", < -300 => "↓", _ => "" };
-        return $", val:{value} rank:#{val.PositionRank}{(trend.Length > 0 ? " " + trend : "")}";
+
+        var pos = val.Player?.Position ?? "";
+        var tier = val.PositionRank switch
+        {
+            1     => $"the #1 {pos}",
+            <= 3  => $"top-3 {pos}",
+            <= 6  => $"top-6 {pos}",
+            <= 12 => $"solid {pos}1",
+            <= 24 => $"mid-tier {pos}2",
+            <= 36 => $"low-end {pos}3",
+            _     => $"bench-level {pos}"
+        };
+
+        var trend = val.Trend30Day switch
+        {
+            > 300  => ", rising",
+            < -300 => ", falling",
+            _      => ""
+        };
+
+        return $", {tier}{trend}";
     }
 
     // ── Picks context ─────────────────────────────────────────────────────────
@@ -637,9 +656,11 @@ public class ChatService
         public string Role { get; set; } = string.Empty;
 
         [JsonPropertyName("content")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? Content { get; set; }
 
         [JsonPropertyName("tool_calls")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public List<OllamaToolCall>? ToolCalls { get; set; }
     }
 
@@ -671,6 +692,9 @@ public class ChatService
 
         [JsonPropertyName("stream")]
         public bool Stream { get; set; }
+
+        [JsonPropertyName("options")]
+        public Dictionary<string, object>? Options { get; set; }
     }
 
     private class OllamaTool
