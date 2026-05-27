@@ -3,6 +3,7 @@ using System;
 using Fantfoot.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Fantfoot.Infrastructure.Migrations
 {
     [DbContext(typeof(FantfootDbContext))]
-    partial class FantfootDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260525004114_AddLocalUser")]
+    partial class AddLocalUser
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "8.0.11");
@@ -280,8 +283,8 @@ namespace Fantfoot.Infrastructure.Migrations
 
             modelBuilder.Entity("Fantfoot.Domain.LocalUser", b =>
                 {
-                    b.Property<string>("SleeperUserId")
-                        .HasMaxLength(50)
+                    b.Property<string>("Email")
+                        .HasMaxLength(256)
                         .HasColumnType("TEXT");
 
                     b.Property<DateTime>("CreatedAt")
@@ -291,7 +294,12 @@ namespace Fantfoot.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.HasKey("SleeperUserId");
+                    b.Property<string>("SleeperUserId")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Email");
 
                     b.ToTable("LocalUsers");
                 });

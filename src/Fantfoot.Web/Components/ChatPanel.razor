@@ -1,0 +1,134 @@
+@using Fantfoot.Web.Services
+
+<div class="chat-container">
+    @if (!isOpen)
+    {
+        <button class="chat-toggle btn btn-primary rounded-circle" @onclick="ToggleOpen">
+            <span class="chat-toggle-icon">?</span>
+        </button>
+    }
+    else
+    {
+        <div class="chat-window card">
+            <div class="card-header d-flex justify-content-between align-items-center py-2">
+                <span class="fw-bold">AI Assistant</span>
+                <button class="btn-close" @onclick="ToggleOpen"></button>
+            </div>
+            <div class="card-body chat-messages p-2" ref="messagesContainer">
+                @if (messages.Count == 0)
+                {
+                    <p class="text-muted small text-center mb-0 py-4">
+                        Ask about your teams, players, or league.
+                    </p>
+                }
+                @foreach (var msg in messages)
+                {
+                    <div class="chat-msg @(msg.IsUser ? "chat-msg-user" : "chat-msg-assistant")">
+                        <div class="chat-msg-bubble">
+                            @msg.Content
+                        </div>
+                    </div>
+                }
+                @if (loading)
+                {
+                    <div class="chat-msg chat-msg-assistant">
+                        <div class="chat-msg-bubble">
+                            <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                            Thinking...
+                        </div>
+                    </div>
+                }
+            </div>
+            <div class="card-footer p-2">
+                <div class="input-group">
+                    <input type="text" class="form-control form-control-sm"
+                           placeholder="Ask anything..."
+                           @bind="input"
+                           @onkeydown="HandleKeyDown"
+                           disabled="@loading" />
+                    <button class="btn btn-primary btn-sm" @onclick="Send" disabled="@(string.IsNullOrWhiteSpace(input) || loading)">
+                        Send
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public ChatContextType ContextType { get; set; }
+
+    [Parameter]
+    public string ContextId { get; set; } = string.Empty;
+
+    [Inject]
+    private ChatService ChatService { get; set; } = default!;
+
+    private bool isOpen;
+    private bool loading;
+    private string input = "";
+    private List<ChatMessage> messages = [];
+
+    public enum ChatContextType { User, League, Team }
+
+    private void ToggleOpen()
+    {
+        isOpen = !isOpen;
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.ShiftKey)
+        {
+            await Send();
+        }
+    }
+
+    private async Task Send()
+    {
+        var question = input.Trim();
+        if (string.IsNullOrWhiteSpace(question) || loading) return;
+
+        input = "";
+        messages.Add(new ChatMessage(question, true));
+        loading = true;
+        StateHasChanged();
+
+        try
+        {
+            var systemPrompt = ContextType switch
+            {
+                ChatContextType.User => await ChatService.GetUserContextAsync(ContextId),
+                ChatContextType.League => await ChatService.GetLeagueContextAsync(ContextId),
+                ChatContextType.Team => await ChatService.GetTeamContextAsync(ContextId),
+                _ => ""
+            };
+
+            if (string.IsNullOrEmpty(systemPrompt))
+            {
+                messages.Add(new ChatMessage("No context data available for this page.", false));
+            }
+            else
+            {
+                var answer = await ChatService.AskAsync(systemPrompt, question);
+                messages.Add(new ChatMessage(answer, false));
+            }
+        }
+        catch (Exception ex)
+        {
+            messages.Add(new ChatMessage($"Error: {ex.Message}", false));
+        }
+        finally
+        {
+            loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private class ChatMessage(string content, bool isUser)
+    {
+        public string Content { get; } = content;
+        public bool IsUser { get; } = isUser;
+    }
+}

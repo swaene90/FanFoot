@@ -14,6 +14,12 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
     ?? "Data Source=fantfoot.db";
 builder.Services.AddFantfootInfrastructure(connectionString);
 builder.Services.AddHostedService<PlayerImportService>();
+builder.Services.AddScoped<ChatService>();
+builder.Services.AddHttpClient("Ollama", client =>
+{
+    client.BaseAddress = new Uri("http://192.168.0.48:11434/");
+    client.Timeout = TimeSpan.FromSeconds(60);
+});
 
 var app = builder.Build();
 

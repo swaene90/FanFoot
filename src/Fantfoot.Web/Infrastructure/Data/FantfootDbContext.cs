@@ -15,6 +15,7 @@ public class FantfootDbContext : DbContext
     public DbSet<Matchup> Matchups => Set<Matchup>();
     public DbSet<DraftPick> DraftPicks => Set<DraftPick>();
     public DbSet<LeagueSettings> LeagueSettings => Set<LeagueSettings>();
+    public DbSet<LocalUser> LocalUsers => Set<LocalUser>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -95,6 +96,13 @@ public class FantfootDbContext : DbContext
             e.HasKey(ls => ls.Id);
             e.Property(ls => ls.Id).HasMaxLength(50);
             e.Property(ls => ls.LeagueId).HasMaxLength(50);
+        });
+
+        modelBuilder.Entity<LocalUser>(e =>
+        {
+            e.HasKey(u => u.SleeperUserId);
+            e.Property(u => u.SleeperUserId).HasMaxLength(50);
+            e.Property(u => u.PasswordHash);
         });
     }
 }

@@ -1,0 +1,118 @@
+@page "/user/{UserId}"
+
+<PageTitle>@user?.DisplayName ?? "User"</PageTitle>
+
+@if (user == null)
+{
+    <p class="text-muted">Loading...</p>
+    return;
+}
+
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <h1>@user.DisplayName</h1>
+            @if (!string.IsNullOrEmpty(user.RealName))
+            {
+                <p class="text-muted">@user.RealName</p>
+            }
+        </div>
+    </div>
+
+    @if (teamsBySeason.Count == 0)
+    {
+        <p class="text-muted">No teams found for this user.</p>
+    }
+    else
+    {
+        @foreach (var (season, groups) in teamsBySeason)
+        {
+            <h3 class="mt-3 mb-2">@season Season</h3>
+
+            @foreach (var (league, teams) in groups)
+            {
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <a href="/league/@league.Id" class="text-decoration-none fw-bold">@league.Name</a>
+                    </div>
+                    <div class="card-body p-0">
+                        <table class="table table-striped mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Team</th>
+                                    <th>W</th>
+                                    <th>L</th>
+                                    <th>T</th>
+                                    <th>PF</th>
+                                    <th>PA</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var team in teams)
+                                {
+                                    <tr>
+                                        <td>@team.TeamName</td>
+                                        <td>@team.Wins</td>
+                                        <td>@team.Losses</td>
+                                        <td>@team.Ties</td>
+                                        <td>@team.PointsFor.ToString("F1")</td>
+                                        <td>@team.PointsAgainst.ToString("F1")</td>
+                                        <td>
+                                            <a href="/league/@team.LeagueId/team/@team.Id" class="btn btn-sm btn-outline-secondary">Roster</a>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            }
+        }
+    }
+</div>
+
+<ChatPanel ContextType="ChatPanel.ChatContextType.User" ContextId="@UserId" />
+
+@code {
+    [Parameter]
+    public string UserId { get; set; } = string.Empty;
+
+    private User? user;
+    private List<(int Season, List<(League League, List<Team> Teams)> Groups)> teamsBySeason = [];
+
+    [Inject]
+    private FantfootDbContext Db { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        user = await Db.Users.FindAsync(UserId);
+        if (user == null) return;
+
+        var teams = await Db.Teams
+            .Where(t => t.OwnerId == UserId)
+            .ToListAsync();
+
+        if (teams.Count == 0) return;
+
+        var leagueIds = teams.Select(t => t.LeagueId).Distinct().ToList();
+        var leagues = await Db.Leagues
+            .Where(l => leagueIds.Contains(l.Id))
+            .ToListAsync();
+
+        var leagueMap = leagues.ToDictionary(l => l.Id);
+
+        teamsBySeason = teams
+            .GroupBy(t => leagueMap.TryGetValue(t.LeagueId, out var l) ? l.Season : 0)
+            .OrderByDescending(g => g.Key)
+            .Select(g => (
+                Season: g.Key,
+                Groups: g
+                    .GroupBy(t => leagueMap.GetValueOrDefault(t.LeagueId)!)
+                    .OrderBy(gg => gg.Key.Name)
+                    .Select(gg => (League: gg.Key, Teams: gg.OrderBy(t => t.TeamName).ToList()))
+                    .ToList()
+            ))
+            .ToList();
+    }
+}

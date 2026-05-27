@@ -1,107 +1,96 @@
 ﻿@page "/"
+@using Microsoft.AspNetCore.Identity
+@implements IDisposable
 
-<PageTitle>Fantfoot</PageTitle>
+<PageTitle>Fantfoot - Sign In</PageTitle>
 
 <div class="container-fluid">
-    <div class="row mb-4">
-        <div class="col">
-            <h1>Fantasy Football Tracker</h1>
-            <p class="text-muted">Track your leagues, rosters, and player stats.</p>
-        </div>
-    </div>
+    <div class="row justify-content-center mt-5">
+        <div class="col-md-6 col-lg-4">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h1 class="card-title mb-4">Fantfoot</h1>
+                    <p class="text-muted mb-4">Track your Sleeper fantasy leagues.</p>
 
-    @if (nflState != null)
-    {
-        <div class="row mb-4">
-            <div class="col-md-4">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">NFL Season</h5>
-                        <p class="card-text display-6">@nflState.Season</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">Current Week</h5>
-                        <p class="card-text display-6">Week @nflState.Week</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">Season Type</h5>
-                        <p class="card-text display-6">@nflState.SeasonType</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    }
-
-    <div class="row mb-3">
-        <div class="col">
-            <h2>Leagues</h2>
-        </div>
-        <div class="col-auto">
-            <button class="btn btn-primary" @onclick="ImportLeague" disabled="@importing">
-                @(importing ? "Importing..." : "Import League")
-            </button>
-        </div>
-    </div>
-
-    @if (importError != null)
-    {
-        <div class="alert alert-danger" role="alert">
-            @importError
-        </div>
-    }
-
-    @if (leagues == null)
-    {
-        <p class="text-muted">Loading...</p>
-    }
-    else if (leagues.Count == 0)
-    {
-        <p class="text-muted">No leagues imported yet. Click "Import League" to add one.</p>
-    }
-    else
-    {
-        var grouped = leagues.GroupBy(l => l.Season).OrderByDescending(g => g.Key);
-        @foreach (var seasonGroup in grouped)
-        {
-            <h3 class="mt-3 mb-2">@seasonGroup.Key Season</h3>
-            <table class="table table-striped">
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>Teams</th>
-                        <th>Source</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var league in seasonGroup)
+                    @if (!string.IsNullOrEmpty(error))
                     {
-                        <tr>
-                            <td>@league.Name</td>
-                            <td>@league.TotalRosters</td>
-                            <td>@league.Source</td>
-                            <td>
-                                <a href="/league/@league.Id" class="btn btn-sm btn-outline-primary">View</a>
-                            </td>
-                        </tr>
+                        <div class="alert alert-danger">@error</div>
                     }
-                </tbody>
-            </table>
-        }
-    }
+
+                    @if (checkingSession)
+                    {
+                        <div class="text-center py-4">
+                            <div class="spinner-border text-primary mb-3" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    }
+                    else if (importing)
+                    {
+                        <div class="text-center py-4">
+                            <div class="spinner-border text-primary mb-3" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="mb-1">Importing your leagues...</p>
+                            <p class="text-muted small">@importMessage</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <form @onsubmit="SignIn">
+                            <div class="mb-3">
+                                <input type="text" class="form-control form-control-lg"
+                                       placeholder="Sleeper User ID"
+                                       @bind="sleeperUserId" />
+                            </div>
+                            <div class="mb-3">
+                                <input type="password" class="form-control form-control-lg"
+                                       placeholder="Password"
+                                       @bind="password" />
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-lg w-100"
+                                    disabled="@(!IsValid || importing)">
+                                Sign In
+                            </button>
+                        </form>
+                    }
+
+                    @if (!checkingSession && !importing)
+                    {
+                        <p class="text-muted small mt-3 mb-0">
+                            Don't know your User ID?
+                            <a href="https://sleeper.com/profile" target="_blank">Check your Sleeper profile</a>
+                            &mdash; it's the ID in the URL.
+                        </p>
+
+                        <p class="mt-3 mb-0">
+                            <a href="/forgot-password" class="text-decoration-none small">Forgot Password?</a>
+                        </p>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 @code {
-    private List<League>? leagues;
-    private SleeperNflStateDto? nflState;
+    private string password = string.Empty;
+    private string sleeperUserId = string.Empty;
+    private string? error;
+    private bool importing;
+    private string importMessage = "";
+    private bool checkingSession = true;
+    private CancellationTokenSource? _cts;
+
+    private bool IsValid =>
+        !string.IsNullOrWhiteSpace(password) &&
+        !string.IsNullOrWhiteSpace(sleeperUserId);
+
+    [Inject]
+    private FantfootDbContext Db { get; set; } = default!;
+
+    [Inject]
+    private NavigationManager Navigation { get; set; } = default!;
 
     [Inject]
     private LeagueService LeagueService { get; set; } = default!;
@@ -109,45 +98,137 @@
     [Inject]
     private SleeperClient Sleeper { get; set; } = default!;
 
-    protected override async Task OnInitializedAsync()
+    [Inject]
+    private IJSRuntime JS { get; set; } = default!;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        leagues = await LeagueService.GetLeaguesAsync();
-        nflState = await Sleeper.GetNflStateAsync();
-    }
+        if (!firstRender) return;
 
-    private string? importError;
-    private bool importing;
-
-    private async Task ImportLeague()
-    {
-        var leagueId = await Prompt("Enter Sleeper League ID:");
-        if (string.IsNullOrWhiteSpace(leagueId)) return;
-
-        importing = true;
-        importError = null;
+        _cts = new CancellationTokenSource();
         try
         {
-            await LeagueService.ImportLeagueAsync(leagueId);
-            await LeagueService.ImportRostersAsync(leagueId);
-            await LeagueService.ImportUsersAsync(leagueId);
-            leagues = await LeagueService.GetLeaguesAsync();
+            var userId = await JS.InvokeAsync<string>("fantfoot.getCookie", _cts.Token, "fantfoot_user");
+            if (!string.IsNullOrEmpty(userId))
+            {
+                var localUser = await Db.LocalUsers.FindAsync([userId], _cts.Token);
+                if (localUser != null)
+                {
+                    Navigation.NavigateTo($"/user/{localUser.SleeperUserId}", replace: true);
+                    return;
+                }
+            }
         }
-        catch (Exception ex)
+        catch
         {
-            importError = ex.InnerException?.Message ?? ex.Message;
         }
-        finally
-        {
-            importing = false;
-        }
+
+        checkingSession = false;
+        StateHasChanged();
     }
 
-    private async Task<string?> Prompt(string message)
+    private async Task SignIn()
     {
-        var js = await JSRuntime.InvokeAsync<string?>("prompt", message);
-        return js;
+        error = null;
+
+        var trimmedPassword = password.Trim();
+        var trimmedSleeperId = sleeperUserId.Trim();
+
+        if (string.IsNullOrWhiteSpace(trimmedPassword) ||
+            string.IsNullOrWhiteSpace(trimmedSleeperId))
+        {
+            error = "All fields are required.";
+            return;
+        }
+
+        var hasher = new PasswordHasher<LocalUser>();
+        var existing = await Db.LocalUsers.FindAsync(trimmedSleeperId);
+        var isNew = false;
+
+        if (existing != null)
+        {
+            var result = hasher.VerifyHashedPassword(existing, existing.PasswordHash, trimmedPassword);
+            if (result == PasswordVerificationResult.Failed)
+            {
+                error = "Invalid password.";
+                return;
+            }
+
+            if (result == PasswordVerificationResult.SuccessRehashNeeded)
+            {
+                existing.PasswordHash = hasher.HashPassword(existing, trimmedPassword);
+            }
+        }
+        else
+        {
+            isNew = true;
+            var localUser = new LocalUser
+            {
+                SleeperUserId = trimmedSleeperId,
+                PasswordHash = hasher.HashPassword(new LocalUser(), trimmedPassword),
+                CreatedAt = DateTime.UtcNow
+            };
+            Db.LocalUsers.Add(localUser);
+        }
+
+        await Db.SaveChangesAsync();
+
+        await JS.InvokeVoidAsync("fantfoot.setCookie", "fantfoot_user", trimmedSleeperId, 7200);
+
+        if (isNew)
+        {
+            importing = true;
+            try
+            {
+                await ImportUserLeaguesAsync(trimmedSleeperId);
+            }
+            catch (Exception ex)
+            {
+                error = $"Leagues imported with errors: {ex.Message}";
+            }
+            finally
+            {
+                importing = false;
+            }
+        }
+
+        Navigation.NavigateTo($"/user/{trimmedSleeperId}");
     }
 
-    [Inject]
-    private IJSRuntime JSRuntime { get; set; } = default!;
+    private async Task ImportUserLeaguesAsync(string userId)
+    {
+        var nflState = await Sleeper.GetNflStateAsync();
+        var currentSeason = nflState?.Season;
+        if (string.IsNullOrEmpty(currentSeason)) return;
+
+        var seen = new HashSet<string>();
+
+        async Task ImportSeason(string season)
+        {
+            var leagues = await Sleeper.GetUserLeaguesAsync(userId, season);
+            if (leagues == null) return;
+
+            foreach (var leagueDto in leagues)
+            {
+                if (!seen.Add(leagueDto.LeagueId)) continue;
+
+                importMessage = $"{leagueDto.Name} ({season})";
+                StateHasChanged();
+
+                await LeagueService.ImportLeagueAsync(leagueDto.LeagueId);
+                await LeagueService.ImportUsersAsync(leagueDto.LeagueId);
+                await LeagueService.ImportRostersAsync(leagueDto.LeagueId);
+            }
+        }
+
+        var season = int.Parse(currentSeason);
+        await ImportSeason(currentSeason);
+        await ImportSeason((season - 1).ToString());
+    }
+
+    public void Dispose()
+    {
+        _cts?.Cancel();
+        _cts?.Dispose();
+    }
 }
