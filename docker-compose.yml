@@ -5,9 +5,9 @@ services:
       dockerfile: Dockerfile
     ports:
       - "5020:8080"
-    env_file:
-      - .env
     environment:
+      - ConnectionStrings__DefaultConnection=${DB_CONNECTION_STRING}
+      - OllamaUrl=${OLLAMA_URL:-http://192.168.0.48:11434/}
       - DataProtection__KeysPath=/data/keys
     volumes:
       - fantfoot-data:/data

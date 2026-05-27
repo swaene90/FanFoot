@@ -20,10 +20,11 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 builder.Services.AddFantfootInfrastructure(connectionString);
 builder.Services.AddHostedService<PlayerImportService>();
 builder.Services.AddScoped<ChatService>();
+var ollamaUrl = builder.Configuration["OllamaUrl"] ?? "http://192.168.0.48:11434/";
 builder.Services.AddHttpClient("Ollama", client =>
 {
-    client.BaseAddress = new Uri("http://192.168.0.48:11434/");
-    client.Timeout = TimeSpan.FromSeconds(60);
+    client.BaseAddress = new Uri(ollamaUrl);
+    client.Timeout = TimeSpan.FromSeconds(120);
 });
 
 var app = builder.Build();
