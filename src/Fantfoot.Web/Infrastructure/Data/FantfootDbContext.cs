@@ -16,6 +16,7 @@ public class FantfootDbContext : DbContext
     public DbSet<DraftPick> DraftPicks => Set<DraftPick>();
     public DbSet<LeagueSettings> LeagueSettings => Set<LeagueSettings>();
     public DbSet<LocalUser> LocalUsers => Set<LocalUser>();
+    public DbSet<ChatSession> ChatSessions => Set<ChatSession>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -102,6 +103,16 @@ public class FantfootDbContext : DbContext
         {
             e.HasKey(u => u.SleeperUserId);
             e.Property(u => u.SleeperUserId).HasMaxLength(50);
+        });
+
+        modelBuilder.Entity<ChatSession>(e =>
+        {
+            e.HasKey(cs => cs.Id);
+            e.Property(cs => cs.Id).HasMaxLength(50);
+            e.Property(cs => cs.UserId).HasMaxLength(50);
+            e.Property(cs => cs.LeagueId).HasMaxLength(50);
+            e.Property(cs => cs.Title).HasMaxLength(100);
+            e.HasIndex(cs => new { cs.UserId, cs.UpdatedAt });
         });
     }
 }

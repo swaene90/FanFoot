@@ -495,9 +495,14 @@ public class ChatService
     {
         if (_valuesBySleeperId.Count == 0) return "";
 
-        var positions = new[] { "QB", "RB", "WR", "TE" };
+        // Use valued player IDs as the filter set to avoid EF/span issues with array.Contains
+        var rosteredSet = rosteredIds.ToHashSet(StringComparer.Ordinal);
+        var candidateIds = _valuesBySleeperId.Keys.Where(id => !rosteredSet.Contains(id)).ToList();
+        if (candidateIds.Count == 0) return "";
+
         var freeAgents = await _db.Players
-            .Where(p => positions.Contains(p.Position) && !rosteredIds.Contains(p.Id))
+            .Where(p => candidateIds.Contains(p.Id) &&
+                        (p.Position == "QB" || p.Position == "RB" || p.Position == "WR" || p.Position == "TE"))
             .ToListAsync();
 
         var notable = freeAgents
@@ -725,6 +730,63 @@ public class ChatService
         {
             return $"Could not retrieve news: {ex.Message}";
         }
+    }
+
+    // ── Chat history ─────────────────────────────────────────────────────────
+
+    public async Task<List<ChatSession>> GetSessionsAsync(string userId)
+    {
+        return await _db.ChatSessions
+            .Where(s => s.UserId == userId)
+            .OrderByDescending(s => s.UpdatedAt)
+            .Take(10)
+            .ToListAsync();
+    }
+
+    public async Task SaveSessionAsync(
+        string sessionId, string userId, string? leagueId,
+        string title, List<(string Role, string Content)> history)
+    {
+        var session = await _db.ChatSessions.FindAsync(sessionId);
+        if (session == null)
+        {
+            session = new ChatSession { Id = sessionId, UserId = userId, LeagueId = leagueId, CreatedAt = DateTimeOffset.UtcNow };
+            _db.ChatSessions.Add(session);
+        }
+
+        session.Title = title.Length > 100 ? title[..100] : title;
+        session.LeagueId = leagueId;
+        session.MessagesJson = JsonSerializer.Serialize(
+            history.Select(h => new { role = h.Role, content = h.Content }));
+        session.UpdatedAt = DateTimeOffset.UtcNow;
+
+        await _db.SaveChangesAsync();
+
+        // Enforce 10-session limit per user
+        var overflow = await _db.ChatSessions
+            .Where(s => s.UserId == userId)
+            .OrderByDescending(s => s.UpdatedAt)
+            .Skip(10)
+            .ToListAsync();
+        if (overflow.Count > 0)
+        {
+            _db.ChatSessions.RemoveRange(overflow);
+            await _db.SaveChangesAsync();
+        }
+    }
+
+    public static List<(string Role, string Content)> DeserializeHistory(string messagesJson)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(messagesJson);
+            return doc.RootElement.EnumerateArray()
+                .Select(e => (
+                    Role: e.GetProperty("role").GetString() ?? "user",
+                    Content: e.GetProperty("content").GetString() ?? ""))
+                .ToList();
+        }
+        catch { return []; }
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
