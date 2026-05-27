@@ -198,6 +198,7 @@ public class ChatService
         }
 
         sb.Append(await BuildPicksContextAsync(leagueId, teams));
+        sb.Append(await BuildFreeAgentsContextAsync(allPlayerIds, isDynasty));
         return sb.ToString();
     }
 
@@ -425,6 +426,37 @@ public class ChatService
                     .Select(p => $"{p.Season} R{p.Round} (to {rosterToName.GetValueOrDefault(p.RosterId, $"Roster {p.RosterId}")})");
                 sb.Append($" traded away {string.Join(", ", desc)};");
             }
+        }
+        return sb.ToString();
+    }
+
+    // ── Free agents ───────────────────────────────────────────────────────────
+
+    private async Task<string> BuildFreeAgentsContextAsync(List<string> rosteredIds, bool isDynasty)
+    {
+        if (_valuesBySleeperId.Count == 0) return "";
+
+        var positions = new[] { "QB", "RB", "WR", "TE" };
+        var freeAgents = await _db.Players
+            .Where(p => positions.Contains(p.Position) && !rosteredIds.Contains(p.Id))
+            .ToListAsync();
+
+        var notable = freeAgents
+            .Select(p => (Player: p, Val: _valuesBySleeperId.GetValueOrDefault(p.Id)))
+            .Where(x => x.Val != null)
+            .OrderBy(x => x.Val!.PositionRank)
+            .GroupBy(x => x.Player.Position)
+            .SelectMany(g => g.Take(5))
+            .OrderBy(x => x.Val!.OverallRank)
+            .ToList();
+
+        if (notable.Count == 0) return "";
+
+        var sb = new System.Text.StringBuilder("\n\nNOTABLE FREE AGENTS (available to add/drop):");
+        foreach (var (player, val) in notable)
+        {
+            var suffix = PlayerValueSuffix(player.Id, isDynasty);
+            sb.Append($"\n  {player.FirstName} {player.LastName} ({player.Position}, {player.Team ?? "FA"}{suffix})");
         }
         return sb.ToString();
     }
