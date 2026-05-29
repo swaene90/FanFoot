@@ -2,19 +2,22 @@
     position: relative;
     display: flex;
     flex-direction: column;
+    min-height: 100vh;
 }
 
 main {
     flex: 1;
+    background-color: #F4F6F8;
 }
 
 .sidebar {
-    background-image: linear-gradient(180deg, rgb(5, 39, 103) 0%, #3a0647 70%);
+    background-color: #0D1117;
+    border-right: 1px solid #1C2128;
 }
 
 .top-row {
-    background-color: #f7f7f7;
-    border-bottom: 1px solid #d6d5d5;
+    background-color: #FFFFFF;
+    border-bottom: 1px solid #E2E6EA;
     justify-content: flex-end;
     height: 3.5rem;
     display: flex;
@@ -25,10 +28,13 @@ main {
         white-space: nowrap;
         margin-left: 1.5rem;
         text-decoration: none;
+        color: #5C6470;
+        font-size: 0.875rem;
     }
 
     .top-row ::deep a:hover, .top-row ::deep .btn-link:hover {
         text-decoration: underline;
+        color: #0076B6;
     }
 
     .top-row ::deep a:first-child {
@@ -49,6 +55,7 @@ main {
 @media (min-width: 641px) {
     .page {
         flex-direction: row;
+        background: linear-gradient(to right, #0D1117 250px, #F4F6F8 250px);
     }
 
     .sidebar {
@@ -56,6 +63,7 @@ main {
         height: 100vh;
         position: sticky;
         top: 0;
+        align-self: flex-start;
     }
 
     .top-row {
@@ -77,15 +85,17 @@ main {
 }
 
 #blazor-error-ui {
-    background: lightyellow;
+    background: #0D1117;
+    color: #F4F6F8;
     bottom: 0;
-    box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.3);
     display: none;
     left: 0;
     padding: 0.6rem 1.25rem 0.7rem 1.25rem;
     position: fixed;
     width: 100%;
     z-index: 1000;
+    font-size: 0.875rem;
 }
 
     #blazor-error-ui .dismiss {
@@ -93,4 +103,5 @@ main {
         position: absolute;
         right: 0.75rem;
         top: 0.5rem;
+        color: #B0B7BC;
     }

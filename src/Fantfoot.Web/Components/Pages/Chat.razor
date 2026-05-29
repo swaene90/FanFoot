@@ -6,7 +6,7 @@
 
 <PageTitle>AI Chat</PageTitle>
 
-<div class="d-flex flex-column" style="height: calc(100vh - 3.5rem);">
+<div class="d-flex flex-column" style="height: calc(100vh - 5rem);">
     <div class="p-3 border-bottom d-flex align-items-center gap-3 flex-wrap">
         <h4 class="mb-0 me-2">AI Assistant</h4>
         @if (leagues.Count > 0)
@@ -33,7 +33,7 @@
                             <li>
                                 <button class="dropdown-item text-truncate py-2"
                                         style="max-width: 280px;"
-                                        @onclick="() => LoadSession(session)">
+                                        @onclick="async () => await LoadSession(session)">
                                     <div class="text-truncate fw-medium" style="font-size: .85rem;">@session.Title</div>
                                     <div class="text-muted" style="font-size: .75rem;">@session.UpdatedAt.LocalDateTime.ToString("MMM d, h:mm tt")</div>
                                 </button>
@@ -172,13 +172,17 @@
         currentSessionId = Guid.NewGuid().ToString();
     }
 
-    private void LoadSession(ChatSession session)
+    private async Task LoadSession(ChatSession session)
     {
         history = ChatService.DeserializeHistory(session.MessagesJson);
         messages = history.Select(h => new ChatMessage(h.Content, h.Role == "user")).ToList();
         currentSessionId = session.Id;
+        selectedLeagueId = session.LeagueId ?? "";
+        systemPrompt = string.IsNullOrEmpty(selectedLeagueId)
+            ? await ChatService.GetUserContextAsync(userId!)
+            : await ChatService.GetLeagueContextAsync(selectedLeagueId, userId);
         StateHasChanged();
-        _ = ScrollToBottom();
+        await ScrollToBottom();
     }
 
     private async Task HandleKeyDown(KeyboardEventArgs e)
