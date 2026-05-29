@@ -1,68 +1,81 @@
 # Fantfoot
 
-A Blazor Interactive Server app for tracking fantasy football leagues via the [Sleeper](https://sleeper.com) API.
+A Blazor Interactive Server app for tracking Sleeper fantasy football leagues, with an AI assistant powered by a local Ollama model.
 
 ## Features
 
-- Import Sleeper leagues, teams/rosters, users, and players into a local SQLite database
-- View league standings with wins, losses, ties, points for/against
-- Team names pulled from Sleeper user metadata alongside manager display names
-- View team rosters (Starters, Bench, Reserve/IR, Taxi Squad)
-- Navigate between past seasons (auto-import previous season leagues)
-- Supports any Sleeper league by ID
-- Player data imported automatically via background service (daily at midnight Eastern) or on-demand via API
+- Sign in with your Sleeper username — leagues import automatically
+- View league standings, team rosters, and matchup history
+- Supports redraft, keeper, and dynasty leagues
+- Dynasty-specific: full draft pick holdings with projected draft order
+- AI chat assistant with full league context (rosters, standings, trade values)
+- AI knows your current week's matchup and opponent roster
+- Trade value data from FantasyCalc (dynasty and redraft)
+- Real-time player stats and NFL news via tools
+- Chat history — last 10 sessions per user persisted to the database
+- Player data synced nightly via background service or on-demand
 
 ## Tech Stack
 
-- **.NET 10** Blazor Interactive Server (targets `net10.0`)
-- **EF Core 8** with SQLite
-- **Sleeper API** (`https://api.sleeper.app/v1`)
+- **.NET 10** Blazor Interactive Server
+- **PostgreSQL** via EF Core + Npgsql
+- **Ollama** for local AI inference (`qwen2.5:7b` by default)
+- **Sleeper API** for league, roster, and player data
+- **FantasyCalc API** for trade values
+- **ESPN API** for player news
+- **Docker** for deployment
 
-## Getting Started
+## Running Locally
 
 ### Prerequisites
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
+- PostgreSQL instance
+- [Ollama](https://ollama.com) running locally with `qwen2.5:7b` pulled
 
-### Run the app
+### Configuration
+
+Copy the example env and fill in your values:
+
+```bash
+cp .env.example .env
+```
+
+| Variable | Description |
+|---|---|
+| `DB_CONNECTION_STRING` | PostgreSQL connection string |
+| `OllamaUrl` | Ollama base URL (default: `http://localhost:11434/`) |
+
+### Run
 
 ```bash
 cd src/Fantfoot.Web
 dotnet run
 ```
 
-Open `http://localhost:5020` in your browser.
+Open `http://localhost:5020` and sign in with your Sleeper username.
 
-### Import a league
-
-1. Click **Import League**
-2. Enter a Sleeper league ID (find yours from your league URL: `https://sleeper.com/leagues/<league_id>`)
-3. The league, teams, and users will be imported and stored locally
-4. From a league's detail page, click **Import Previous Season** to fetch past years
-
-### Import players
-
-Player data (all ~12,000+ NFL players) is imported automatically every night at midnight Eastern.
-You can also trigger an import on demand:
+## Docker
 
 ```bash
-curl -X POST http://localhost:5020/api/players/import
+docker compose up --build
 ```
+
+The app runs on port `5020`. Configure `DB_CONNECTION_STRING` and `OllamaUrl` in your `.env` file before starting.
+
+See [DEPLOY.md](DEPLOY.md) for setting up auto-deploy to an Unraid server via GitHub Actions.
 
 ## Project Structure
 
 ```
 Fantfoot.slnx
 src/
-├── Fantfoot.Domain/              # Entity models (League, Team, User, Player)
-├── Fantfoot.Infrastructure/      # Sleeper API client, EF Core DbContext, services, mappings
-│   ├── Clients/                  # HTTP client + DTOs for Sleeper API
-│   ├── Data/                     # EF Core DbContext + migrations
-│   ├── Mapping/                  # DTO → entity mappers
-│   └── Services/                 # Business logic (LeagueService)
-└── Fantfoot.Web/                 # Blazor UI pages + background service
-    ├── Components/Pages/         # Razor pages (Home, LeagueDetail, TeamDetail)
-    └── Services/                 # PlayerImportService (daily scheduler)
+├── Fantfoot.Domain/          # Entity models
+├── Fantfoot.Infrastructure/  # EF Core DbContext, Sleeper/FantasyCalc clients, mappings
+└── Fantfoot.Web/
+    ├── Components/Pages/     # Blazor pages (Home, Chat, LeagueDetail, TeamDetail)
+    ├── Services/             # ChatService, PlayerImportService
+    └── wwwroot/              # Static assets
 ```
 
 ## License
