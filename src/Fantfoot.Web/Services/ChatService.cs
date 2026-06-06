@@ -5,6 +5,7 @@ using Fantfoot.Domain;
 using Fantfoot.Infrastructure.Clients;
 using Fantfoot.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 
 namespace Fantfoot.Web.Services;
 
@@ -15,7 +16,9 @@ public class ChatService
     private readonly FantasyCalcClient _fantasyCalc;
     private readonly IHttpClientFactory _httpFactory;
     private readonly HttpClient _http;
-    private const string Model = "qwen2.5:7b";
+    private readonly string _model;
+    private readonly bool _isGroq;
+    private readonly ILogger<ChatService> _logger;
 
     // FantasyCalc value cache — scoped to circuit lifetime, keyed per league
     private string? _valuesCachedForLeague;
@@ -26,13 +29,19 @@ public class ChatService
         FantfootDbContext db,
         SleeperClient sleeper,
         FantasyCalcClient fantasyCalc,
-        IHttpClientFactory httpClientFactory)
+        IHttpClientFactory httpClientFactory,
+        IConfiguration configuration,
+        ILogger<ChatService> logger)
     {
         _db = db;
         _sleeper = sleeper;
         _fantasyCalc = fantasyCalc;
         _httpFactory = httpClientFactory;
         _http = httpClientFactory.CreateClient("Ollama");
+        _logger = logger;
+        _isGroq = !string.IsNullOrEmpty(configuration["GroqApiKey"]);
+        _model = configuration["LlmModel"]
+            ?? (_isGroq ? "llama-3.3-70b-versatile" : "qwen2.5:7b");
     }
 
     public async Task<string> GetUserContextAsync(string userId)
@@ -240,29 +249,36 @@ public class ChatService
 
     public async Task<string> AskAsync(string systemPrompt, List<(string Role, string Content)> history)
     {
-        var messages = new List<OllamaMessage>
+        _logger.LogInformation("AskAsync: model={Model} systemPromptLength={Length} historyCount={Count}",
+            _model, systemPrompt?.Length ?? 0, history.Count);
+
+        var messages = new List<LlmMessage>
         {
             new() { Role = "system", Content = systemPrompt }
         };
-        messages.AddRange(history.Select(h => new OllamaMessage { Role = h.Role, Content = h.Content }));
+        messages.AddRange(history.Select(h => new LlmMessage { Role = h.Role, Content = h.Content }));
 
         var tools = BuildTools();
 
         for (int i = 0; i < 3; i++)
         {
-            var request = new OllamaChatRequest
+            var request = new LlmChatRequest
             {
-                Model = Model,
-                Messages = [.. messages],
+                Model = _model,
+                Messages = messages,
                 Tools = tools,
                 Stream = false,
-                Options = new Dictionary<string, object> { ["num_ctx"] = 8192 }
+                Options = _isGroq ? null : new Dictionary<string, object> { ["num_ctx"] = 8192 }
             };
 
-            var response = await _http.PostAsJsonAsync("api/chat", request);
-            response.EnsureSuccessStatusCode();
-            var result = await response.Content.ReadFromJsonAsync<OllamaChatResponse>();
-            var msg = result?.Message;
+            var response = await _http.PostAsJsonAsync("chat/completions", request);
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorBody = await response.Content.ReadAsStringAsync();
+                throw new HttpRequestException($"{(int)response.StatusCode} {response.ReasonPhrase}: {errorBody}");
+            }
+            var result = await response.Content.ReadFromJsonAsync<LlmChatResponse>();
+            var msg = result?.Choices?.FirstOrDefault()?.Message;
 
             if (msg?.ToolCalls is not { Count: > 0 })
                 return CleanResponse(msg?.Content);
@@ -271,8 +287,14 @@ public class ChatService
 
             foreach (var toolCall in msg.ToolCalls)
             {
-                var toolResult = await ExecuteToolAsync(toolCall.Function?.Name, toolCall.Function?.Arguments);
-                messages.Add(new OllamaMessage { Role = "tool", Content = toolResult });
+                JsonElement args = default;
+                if (!string.IsNullOrEmpty(toolCall.Function?.Arguments))
+                {
+                    try { args = JsonDocument.Parse(toolCall.Function.Arguments).RootElement; }
+                    catch { }
+                }
+                var toolResult = await ExecuteToolAsync(toolCall.Function?.Name, args);
+                messages.Add(new LlmMessage { Role = "tool", ToolCallId = toolCall.Id, Content = toolResult });
             }
         }
 
@@ -565,7 +587,7 @@ public class ChatService
 
     // ── Tool definitions ──────────────────────────────────────────────────────
 
-    private static List<OllamaTool> BuildTools() =>
+    private static List<LlmTool> BuildTools() =>
     [
         new()
         {
@@ -578,8 +600,7 @@ public class ChatService
                     type = "object",
                     properties = new
                     {
-                        player_name = new { type = "string", description = "Full name of the NFL player" },
-                        weeks = new { type = "integer", description = "Number of recent weeks to fetch (default 4, max 8)" }
+                        player_name = new { type = "string", description = "Full name of the NFL player" }
                     },
                     required = new[] { "player_name" }
                 }
@@ -840,9 +861,9 @@ public class ChatService
         return string.IsNullOrWhiteSpace(content) ? "Sorry, I couldn't process that." : content;
     }
 
-    // ── Ollama DTOs ───────────────────────────────────────────────────────────
+    // ── OpenAI-compatible DTOs (works with Groq and Ollama /v1/) ─────────────
 
-    private class OllamaMessage
+    private class LlmMessage
     {
         [JsonPropertyName("role")]
         public string Role { get; set; } = string.Empty;
@@ -853,52 +874,65 @@ public class ChatService
 
         [JsonPropertyName("tool_calls")]
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public List<OllamaToolCall>? ToolCalls { get; set; }
+        public List<LlmToolCall>? ToolCalls { get; set; }
+
+        [JsonPropertyName("tool_call_id")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? ToolCallId { get; set; }
     }
 
-    private class OllamaToolCall
+    private class LlmToolCall
     {
+        [JsonPropertyName("id")]
+        public string Id { get; set; } = string.Empty;
+
+        [JsonPropertyName("type")]
+        public string Type { get; set; } = "function";
+
         [JsonPropertyName("function")]
-        public OllamaToolCallFunction? Function { get; set; }
+        public LlmToolCallFunction? Function { get; set; }
     }
 
-    private class OllamaToolCallFunction
+    private class LlmToolCallFunction
     {
         [JsonPropertyName("name")]
         public string Name { get; set; } = string.Empty;
 
         [JsonPropertyName("arguments")]
-        public JsonElement Arguments { get; set; }
+        public string Arguments { get; set; } = string.Empty;
     }
 
-    private class OllamaChatRequest
+    private class LlmChatRequest
     {
         [JsonPropertyName("model")]
         public string Model { get; set; } = string.Empty;
 
         [JsonPropertyName("messages")]
-        public OllamaMessage[] Messages { get; set; } = [];
+        public List<LlmMessage> Messages { get; set; } = [];
 
         [JsonPropertyName("tools")]
-        public List<OllamaTool>? Tools { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public List<LlmTool>? Tools { get; set; }
 
         [JsonPropertyName("stream")]
         public bool Stream { get; set; }
 
+        // Ollama-specific: sets the context window. Ignored by Groq.
         [JsonPropertyName("options")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public Dictionary<string, object>? Options { get; set; }
     }
 
-    private class OllamaTool
+    private class LlmTool
     {
         [JsonPropertyName("type")]
         public string Type { get; set; } = "function";
 
         [JsonPropertyName("function")]
-        public OllamaToolFunction Function { get; set; } = new();
+        public LlmToolFunction Function { get; set; } = new();
     }
 
-    private class OllamaToolFunction
+    private class LlmToolFunction
     {
         [JsonPropertyName("name")]
         public string Name { get; set; } = string.Empty;
@@ -910,9 +944,15 @@ public class ChatService
         public object Parameters { get; set; } = new();
     }
 
-    private class OllamaChatResponse
+    private class LlmChatResponse
+    {
+        [JsonPropertyName("choices")]
+        public List<LlmChoice>? Choices { get; set; }
+    }
+
+    private class LlmChoice
     {
         [JsonPropertyName("message")]
-        public OllamaMessage? Message { get; set; }
+        public LlmMessage? Message { get; set; }
     }
 }

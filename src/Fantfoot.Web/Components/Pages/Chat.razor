@@ -6,97 +6,89 @@
 
 <PageTitle>AI Chat</PageTitle>
 
-<div class="d-flex flex-column" style="height: calc(100vh - 5rem);">
-    <div class="p-3 border-bottom d-flex align-items-center gap-3 flex-wrap">
-        <h4 class="mb-0 me-2">AI Assistant</h4>
+<div style="display:flex; flex-direction:column; height:calc(100vh - 48px - 2rem);">
+    <MudPaper Elevation="0" Square="true" Style="padding:0.75rem; border-bottom:1px solid var(--mud-palette-divider); display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+        <MudText Typo="Typo.h6">AI Assistant</MudText>
         @if (leagues.Count > 0)
         {
-            <select class="form-select form-select-sm w-auto" @bind="selectedLeagueId" @bind:after="OnLeagueChanged">
-                <option value="">All My Teams</option>
+            <MudSelect T="string" Value="@selectedLeagueId" ValueChanged="OnLeagueSelectChanged"
+                       Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined"
+                       Style="min-width:220px; max-width:300px;">
+                <MudSelectItem T="string" Value='@("")'>All My Teams</MudSelectItem>
                 @foreach (var league in leagues)
                 {
-                    <option value="@league.Id">@league.Name (@league.Season)</option>
+                    <MudSelectItem T="string" Value="@league.Id">@league.Name (@league.Season)</MudSelectItem>
                 }
-            </select>
+            </MudSelect>
         }
-        <div class="ms-auto d-flex gap-2">
-            @if (sessions.Count > 0)
-            {
-                <div class="dropdown">
-                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button"
-                            data-bs-toggle="dropdown" aria-expanded="false">
-                        History
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-end" style="min-width: 280px; max-height: 400px; overflow-y: auto;">
-                        @foreach (var session in sessions)
-                        {
-                            <li>
-                                <button class="dropdown-item text-truncate py-2"
-                                        style="max-width: 280px;"
-                                        @onclick="async () => await LoadSession(session)">
-                                    <div class="text-truncate fw-medium" style="font-size: .85rem;">@session.Title</div>
-                                    <div class="text-muted" style="font-size: .75rem;">@session.UpdatedAt.LocalDateTime.ToString("MMM d, h:mm tt")</div>
-                                </button>
-                            </li>
-                            <li><hr class="dropdown-divider my-0"></li>
-                        }
-                    </ul>
-                </div>
-            }
-            @if (messages.Count > 0)
-            {
-                <button class="btn btn-sm btn-outline-secondary" @onclick="NewChat">New Chat</button>
-            }
-        </div>
-    </div>
+        <MudSpacer />
+        @if (sessions.Count > 0)
+        {
+            <MudMenu Label="History" Variant="Variant.Outlined" Size="Size.Small"
+                     AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight" MaxHeight="400">
+                @foreach (var session in sessions)
+                {
+                    <MudMenuItem OnClick="@(async () => await LoadSession(session))">
+                        <MudText Typo="Typo.body2" Style="font-weight:500; max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">@session.Title</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">@session.UpdatedAt.LocalDateTime.ToString("MMM d, h:mm tt")</MudText>
+                    </MudMenuItem>
+                }
+            </MudMenu>
+        }
+        @if (messages.Count > 0)
+        {
+            <MudButton Variant="Variant.Outlined" Size="Size.Small" OnClick="NewChat">New Chat</MudButton>
+        }
+    </MudPaper>
 
-    <div class="flex-grow-1 overflow-y-auto p-3 d-flex flex-column gap-2" @ref="messagesContainer">
+    <div style="flex:1; overflow-y:auto; padding:0.75rem; display:flex; flex-direction:column; gap:0.5rem;" @ref="messagesContainer">
         @if (initializing)
         {
-            <div class="text-center mt-5">
-                <div class="spinner-border text-primary" role="status"></div>
-                <p class="text-muted mt-2">Loading league context...</p>
+            <div style="display:flex; flex-direction:column; align-items:center; margin-top:3rem;">
+                <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-2">Loading league context...</MudText>
             </div>
         }
         else if (messages.Count == 0)
         {
-            <p class="text-muted text-center mt-5">Ask about your teams, players, or matchups.</p>
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Align="Align.Center" Class="mt-10">
+                Ask about your teams, players, or matchups.
+            </MudText>
         }
         @foreach (var msg in messages)
         {
-            <div class="d-flex @(msg.IsUser ? "justify-content-end" : "justify-content-start")">
-                <div class="px-3 py-2 rounded-3 @(msg.IsUser ? "bg-primary text-white" : "bg-light text-dark")"
-                     style="max-width: 70%; white-space: pre-wrap; word-break: break-word; font-size: .9rem;">
-                    @msg.Content
-                </div>
+            <div style="display:flex; @(msg.IsUser ? "justify-content:flex-end" : "justify-content:flex-start");">
+                <div class="@(msg.IsUser ? "chat-bubble-user" : "chat-bubble-ai")">@msg.Content</div>
             </div>
         }
         @if (loading)
         {
-            <div class="d-flex justify-content-start">
-                <div class="px-3 py-2 rounded-3 bg-light text-dark" style="font-size: .9rem;">
-                    <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+            <div style="display:flex; justify-content:flex-start;">
+                <MudPaper Elevation="0" Style="padding:0.5rem 0.75rem; border-radius:12px; background-color:var(--mud-palette-background-grey); font-size:.9rem; display:flex; align-items:center; gap:0.5rem;">
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Color="Color.Primary" />
                     Thinking...
-                </div>
+                </MudPaper>
             </div>
         }
     </div>
 
-    <div class="p-3 border-top">
-        <div class="input-group">
-            <input type="text" class="form-control"
-                   placeholder="Ask anything..."
-                   @bind="input"
-                   @bind:event="oninput"
-                   @onkeydown="HandleKeyDown"
-                   disabled="@loading" />
-            <button class="btn btn-primary"
-                    @onclick="Send"
-                    disabled="@(string.IsNullOrWhiteSpace(input) || loading)">
+    <MudPaper Elevation="0" Square="true" Style="padding:0.75rem; border-top:1px solid var(--mud-palette-divider);">
+        <div style="display:flex; gap:0.5rem; align-items:center;">
+            <MudTextField T="string" @bind-Value="input"
+                          Placeholder="Ask anything..."
+                          Immediate="true"
+                          Disabled="@loading"
+                          OnKeyDown="HandleKeyDown"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          Style="flex:1;" />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       OnClick="Send"
+                       Disabled="@(string.IsNullOrWhiteSpace(input) || loading)">
                 Send
-            </button>
+            </MudButton>
         </div>
-    </div>
+    </MudPaper>
 </div>
 
 @code {
@@ -152,6 +144,12 @@
 
         initializing = false;
         StateHasChanged();
+    }
+
+    private async Task OnLeagueSelectChanged(string value)
+    {
+        selectedLeagueId = value;
+        await OnLeagueChanged();
     }
 
     private async Task OnLeagueChanged()
@@ -219,6 +217,7 @@
         }
         catch (Exception ex)
         {
+            history.RemoveAt(history.Count - 1);
             messages.Add(new ChatMessage($"Error: {ex.Message}", false));
         }
         finally

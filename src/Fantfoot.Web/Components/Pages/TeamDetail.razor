@@ -1,137 +1,45 @@
 @page "/league/{LeagueId}/team/{TeamId}"
 @using System.Text.Json
 
-<PageTitle>@team?.TeamName ?? "Team"</PageTitle>
+<PageTitle>@(team?.TeamName ?? "Team")</PageTitle>
 
 @if (team == null)
 {
-    <p class="text-muted">Loading...</p>
+    <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
     return;
 }
 
-<div class="container-fluid">
-    <div class="row mb-3">
-        <div class="col">
-            <a href="/league/@LeagueId" class="text-decoration-none">&larr; Back to @league?.Name</a>
-        </div>
-    </div>
+<MudLink Href="@($"/league/{LeagueId}")" Underline="Underline.None" Class="mb-3 d-block">&larr; Back to @league?.Name</MudLink>
 
-    <div class="row mb-4">
-        <div class="col">
-            <h1>@team.TeamName</h1>
-            <p class="text-muted">
-                Manager: @managerName
-                &middot; @team.Wins - @team.Losses - @team.Ties
-                &middot; PF: @team.PointsFor.ToString("F1") PA: @team.PointsAgainst.ToString("F1")
-            </p>
-        </div>
-    </div>
+<MudText Typo="Typo.h4" Class="mb-1">@team.TeamName</MudText>
+<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+    Manager: @managerName &middot; @team.Wins-@team.Losses-@team.Ties &middot; PF: @team.PointsFor.ToString("F1") PA: @team.PointsAgainst.ToString("F1")
+</MudText>
 
-    @if (rosterPlayers.Count == 0)
+@if (rosterPlayers.Count == 0)
+{
+    <MudText Color="Color.Secondary">No players on roster.</MudText>
+}
+else
+{
+    <MudText Typo="Typo.h5" Class="mb-2">Starters</MudText>
+    @PlayerTable(starters)
+
+    <MudText Typo="Typo.h5" Class="mt-4 mb-2">Bench</MudText>
+    @PlayerTable(bench)
+
+    @if (reserve.Count > 0)
     {
-        <p class="text-muted">No players on roster.</p>
+        <MudText Typo="Typo.h5" Class="mt-4 mb-2">Reserve / IR</MudText>
+        @PlayerTable(reserve)
     }
-    else
+
+    @if (taxi.Count > 0)
     {
-        <h2>Starters</h2>
-        <table class="table table-striped mb-4">
-            <thead>
-                <tr>
-                    <th>Player</th>
-                    <th>Pos</th>
-                    <th>NFL Team</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var p in starters)
-                {
-                    <tr>
-                        <td>@p.FullName</td>
-                        <td>@p.Position</td>
-                        <td>@p.Team</td>
-                        <td>@StatusBadge(p.Status, p.InjuryStatus)</td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-
-        <h2>Bench</h2>
-        <table class="table table-striped">
-            <thead>
-                <tr>
-                    <th>Player</th>
-                    <th>Pos</th>
-                    <th>NFL Team</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var p in bench)
-                {
-                    <tr>
-                        <td>@p.FullName</td>
-                        <td>@p.Position</td>
-                        <td>@p.Team</td>
-                        <td>@StatusBadge(p.Status, p.InjuryStatus)</td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-
-        @if (reserve.Count > 0)
-        {
-            <h2>Reserve / IR</h2>
-            <table class="table table-striped">
-                <thead>
-                    <tr>
-                        <th>Player</th>
-                        <th>Pos</th>
-                        <th>NFL Team</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var p in reserve)
-                    {
-                        <tr>
-                            <td>@p.FullName</td>
-                            <td>@p.Position</td>
-                            <td>@p.Team</td>
-                            <td>@StatusBadge(p.Status, p.InjuryStatus)</td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        }
-
-        @if (taxi.Count > 0)
-        {
-            <h2>Taxi Squad</h2>
-            <table class="table table-striped">
-                <thead>
-                    <tr>
-                        <th>Player</th>
-                        <th>Pos</th>
-                        <th>NFL Team</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var p in taxi)
-                    {
-                        <tr>
-                            <td>@p.FullName</td>
-                            <td>@p.Position</td>
-                            <td>@p.Team</td>
-                            <td>@StatusBadge(p.Status, p.InjuryStatus)</td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        }
+        <MudText Typo="Typo.h5" Class="mt-4 mb-2">Taxi Squad</MudText>
+        @PlayerTable(taxi)
     }
-</div>
+}
 
 @code {
     [Parameter]
@@ -189,31 +97,47 @@
         taxi = taxiIds.Select(id => playerMap.GetValueOrDefault(id)).OfType<Player>().ToList();
     }
 
+    private RenderFragment PlayerTable(List<Player> players) =>
+        @<MudTable T="Player" Items="@players" Striped="true" Hover="true" Dense="true" Elevation="1" Class="mb-2">
+            <HeaderContent>
+                <MudTh>Player</MudTh>
+                <MudTh>Pos</MudTh>
+                <MudTh>NFL Team</MudTh>
+                <MudTh>Status</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Player">@context.FullName</MudTd>
+                <MudTd DataLabel="Pos">@context.Position</MudTd>
+                <MudTd DataLabel="NFL Team">@context.Team</MudTd>
+                <MudTd DataLabel="Status">
+                    @{
+                        var (chipColor, chipLabel) = GetStatusInfo(context.Status, context.InjuryStatus);
+                    }
+                    @if (chipLabel != null)
+                    {
+                        <MudChip T="string" Color="chipColor" Size="Size.Small">@chipLabel</MudChip>
+                    }
+                </MudTd>
+            </RowTemplate>
+        </MudTable>;
+
+    private static (Color Color, string? Label) GetStatusInfo(string? status, string? injuryStatus)
+    {
+        if (status == "Active" && string.IsNullOrEmpty(injuryStatus)) return (Color.Default, null);
+        var label = injuryStatus ?? status;
+        var color = (injuryStatus ?? status) switch
+        {
+            "Out" => Color.Error,
+            "Questionable" or "Doubtful" => Color.Warning,
+            _ => Color.Default
+        };
+        return (color, label);
+    }
+
     private static List<string> DeserializeIds(string? json)
     {
         if (string.IsNullOrEmpty(json)) return [];
         try { return JsonSerializer.Deserialize<List<string>>(json) ?? []; }
         catch { return []; }
     }
-
-    private static RenderFragment StatusBadge(string? status, string? injuryStatus) => builder =>
-    {
-        if (status == "Active" && string.IsNullOrEmpty(injuryStatus)) return;
-
-        var color = (injuryStatus ?? status) switch
-        {
-            "Out" => "danger",
-            "Questionable" => "warning",
-            "Doubtful" => "warning",
-            "IR" => "secondary",
-            "Suspended" => "dark",
-            _ => "secondary"
-        };
-
-        var label = injuryStatus ?? status;
-        builder.OpenElement(0, "span");
-        builder.AddAttribute(1, "class", $"badge bg-{color}");
-        builder.AddContent(2, label);
-        builder.CloseElement();
-    };
 }

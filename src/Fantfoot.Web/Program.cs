@@ -1,4 +1,5 @@
 using Fantfoot.Infrastructure;
+using MudBlazor.Services;
 using Microsoft.AspNetCore.DataProtection;
 using Fantfoot.Infrastructure.Data;
 using Fantfoot.Infrastructure.Services;
@@ -12,6 +13,8 @@ builder.Services.AddDataProtection()
     .PersistKeysToFileSystem(new DirectoryInfo(
         builder.Configuration["DataProtection:KeysPath"] ?? "keys"));
 
+builder.Services.AddMudServices();
+
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
@@ -20,12 +23,26 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 builder.Services.AddFantfootInfrastructure(connectionString);
 builder.Services.AddHostedService<PlayerImportService>();
 builder.Services.AddScoped<ChatService>();
-var ollamaUrl = builder.Configuration["OllamaUrl"] ?? "http://192.168.0.48:11434/";
-builder.Services.AddHttpClient("Ollama", client =>
+var groqApiKey = builder.Configuration["GroqApiKey"];
+if (!string.IsNullOrEmpty(groqApiKey))
 {
-    client.BaseAddress = new Uri(ollamaUrl);
-    client.Timeout = TimeSpan.FromSeconds(120);
-});
+    builder.Services.AddHttpClient("Ollama", client =>
+    {
+        client.BaseAddress = new Uri("https://api.groq.com/openai/v1/");
+        client.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", groqApiKey);
+        client.Timeout = TimeSpan.FromSeconds(60);
+    });
+}
+else
+{
+    var ollamaUrl = builder.Configuration["OllamaUrl"] ?? "http://192.168.0.48:11434/";
+    builder.Services.AddHttpClient("Ollama", client =>
+    {
+        client.BaseAddress = new Uri(new Uri(ollamaUrl), "v1/");
+        client.Timeout = TimeSpan.FromSeconds(120);
+    });
+}
 
 var app = builder.Build();
 

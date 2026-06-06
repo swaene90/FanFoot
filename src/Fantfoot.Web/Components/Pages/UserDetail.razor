@@ -1,76 +1,65 @@
 @page "/user/{UserId}"
 
-<PageTitle>@user?.DisplayName ?? "User"</PageTitle>
+<PageTitle>@(user?.DisplayName ?? "User")</PageTitle>
 
 @if (user == null)
 {
-    <p class="text-muted">Loading...</p>
+    <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
     return;
 }
 
-<div class="container-fluid">
-    <div class="row mb-4">
-        <div class="col">
-            <h1>@user.DisplayName</h1>
-            @if (!string.IsNullOrEmpty(user.RealName))
-            {
-                <p class="text-muted">@user.RealName</p>
-            }
-        </div>
-    </div>
+<MudText Typo="Typo.h4" Class="mb-1">@user.DisplayName</MudText>
+@if (!string.IsNullOrEmpty(user.RealName))
+{
+    <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mb-4">@user.RealName</MudText>
+}
 
-    @if (teamsBySeason.Count == 0)
+@if (teamsBySeason.Count == 0)
+{
+    <MudText Color="Color.Secondary">No teams found for this user.</MudText>
+}
+else
+{
+    @foreach (var (season, groups) in teamsBySeason)
     {
-        <p class="text-muted">No teams found for this user.</p>
-    }
-    else
-    {
-        @foreach (var (season, groups) in teamsBySeason)
+        <MudText Typo="Typo.h5" Class="mt-4 mb-2">@season Season</MudText>
+
+        @foreach (var (league, teams) in groups)
         {
-            <h3 class="mt-3 mb-2">@season Season</h3>
-
-            @foreach (var (league, teams) in groups)
-            {
-                <div class="card mb-3">
-                    <div class="card-header">
-                        <a href="/league/@league.Id" class="text-decoration-none fw-bold">@league.Name</a>
-                    </div>
-                    <div class="card-body p-0">
-                        <table class="table table-striped mb-0">
-                            <thead>
-                                <tr>
-                                    <th>Team</th>
-                                    <th>W</th>
-                                    <th>L</th>
-                                    <th>T</th>
-                                    <th>PF</th>
-                                    <th>PA</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var team in teams)
-                                {
-                                    <tr>
-                                        <td>@team.TeamName</td>
-                                        <td>@team.Wins</td>
-                                        <td>@team.Losses</td>
-                                        <td>@team.Ties</td>
-                                        <td>@team.PointsFor.ToString("F1")</td>
-                                        <td>@team.PointsAgainst.ToString("F1")</td>
-                                        <td>
-                                            <a href="/league/@team.LeagueId/team/@team.Id" class="btn btn-sm btn-outline-secondary">Roster</a>
-                                        </td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            }
+            <MudCard Elevation="1" Class="mb-3">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudLink Href="@($"/league/{league.Id}")" Typo="Typo.h6" Underline="Underline.None">@league.Name</MudLink>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent Class="pa-0">
+                    <MudTable T="Team" Items="@teams" Striped="true" Hover="true" Dense="true" Elevation="0">
+                        <HeaderContent>
+                            <MudTh>Team</MudTh>
+                            <MudTh>W</MudTh>
+                            <MudTh>L</MudTh>
+                            <MudTh>T</MudTh>
+                            <MudTh>PF</MudTh>
+                            <MudTh>PA</MudTh>
+                            <MudTh></MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="Team">@context.TeamName</MudTd>
+                            <MudTd DataLabel="W">@context.Wins</MudTd>
+                            <MudTd DataLabel="L">@context.Losses</MudTd>
+                            <MudTd DataLabel="T">@context.Ties</MudTd>
+                            <MudTd DataLabel="PF">@context.PointsFor.ToString("F1")</MudTd>
+                            <MudTd DataLabel="PA">@context.PointsAgainst.ToString("F1")</MudTd>
+                            <MudTd>
+                                <MudButton Href="@($"/league/{context.LeagueId}/team/{context.Id}")" Size="Size.Small" Variant="Variant.Outlined">Roster</MudButton>
+                            </MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                </MudCardContent>
+            </MudCard>
         }
     }
-</div>
+}
 
 @code {
     [Parameter]

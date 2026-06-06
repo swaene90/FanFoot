@@ -1,82 +1,73 @@
 @page "/league/{LeagueId}"
 
-<PageTitle>@league?.Name ?? "League"</PageTitle>
+<PageTitle>@(league?.Name ?? "League")</PageTitle>
 
 @if (league == null)
 {
-    <p class="text-muted">Loading...</p>
+    <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
     return;
 }
 
-<div class="container-fluid">
-    <div class="row mb-4">
-        <div class="col">
-            <h1>@league.Name</h1>
-            <p class="text-muted">Season @league.Season · @league.TotalRosters teams · @league.Source</p>
-        </div>
-        <div class="col-auto d-flex align-items-center gap-2">
-            @if (previousLeague != null)
-            {
-                <a href="/league/@previousLeague.Id" class="btn btn-outline-secondary btn-sm">
-                    &larr; @previousLeague.Season Season
-                </a>
-            }
-            else if (league.PreviousLeagueId != null)
-            {
-                <button class="btn btn-outline-secondary btn-sm" @onclick="ImportPreviousSeason" disabled="@importingPrev">
-                    @(importingPrev ? "Importing..." : $"Import {league.Season - 1} Season")
-                </button>
-            }
-            <a href="/league/@league.Id/draft" class="btn btn-outline-primary btn-sm">Draft</a>
-        </div>
-    </div>
+@{
+    var ownerMap = users?.ToDictionary(u => u.Id, u => u.DisplayName ?? "Unknown") ?? [];
+    var sortedTeams = teams?.OrderByDescending(t => t.Wins).ToList() ?? [];
+}
 
-    <h2>Teams</h2>
-    <table class="table table-striped">
-        <thead>
-            <tr>
-                <th>Team</th>
-                <th>Manager</th>
-                <th>W</th>
-                <th>L</th>
-                <th>T</th>
-                <th>PF</th>
-                <th>PA</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            @if (teams == null)
-            {
-                <tr><td colspan="8" class="text-muted">Loading...</td></tr>
-            }
-            else if (teams.Count == 0)
-            {
-                <tr><td colspan="8" class="text-muted">No teams loaded.</td></tr>
-            }
-            else
-            {
-                var ownerMap = users?.ToDictionary(u => u.Id, u => u.DisplayName ?? "Unknown") ?? [];
-                @foreach (var team in teams.OrderByDescending(t => t.Wins))
-                {
-                    var managerName = team.OwnerId != null && ownerMap.TryGetValue(team.OwnerId, out var name) ? name : "—";
-                    <tr>
-                        <td>@team.TeamName</td>
-                        <td>@managerName</td>
-                        <td>@team.Wins</td>
-                        <td>@team.Losses</td>
-                        <td>@team.Ties</td>
-                        <td>@team.PointsFor.ToString("F1")</td>
-                        <td>@team.PointsAgainst.ToString("F1")</td>
-                        <td>
-                            <a href="/league/@league.Id/team/@team.Id" class="btn btn-sm btn-outline-secondary">Roster</a>
-                        </td>
-                    </tr>
-                }
-            }
-        </tbody>
-    </table>
+<div style="display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:0.5rem; margin-bottom:1.5rem;">
+    <div>
+        <MudText Typo="Typo.h4">@league.Name</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary">
+            Season @league.Season &middot; @league.TotalRosters teams &middot; @league.Source
+        </MudText>
+    </div>
+    <div style="display:flex; gap:0.5rem; align-items:center;">
+        @if (previousLeague != null)
+        {
+            <MudButton Href="@($"/league/{previousLeague.Id}")" Variant="Variant.Outlined" Size="Size.Small">
+                &larr; @previousLeague.Season Season
+            </MudButton>
+        }
+        else if (league.PreviousLeagueId != null)
+        {
+            <MudButton Variant="Variant.Outlined" Size="Size.Small"
+                       OnClick="ImportPreviousSeason" Disabled="@importingPrev">
+                @(importingPrev ? "Importing..." : $"Import {league.Season - 1} Season")
+            </MudButton>
+        }
+        <MudButton Href="@($"/league/{league.Id}/draft")" Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small">
+            Draft
+        </MudButton>
+    </div>
 </div>
+
+<MudText Typo="Typo.h5" Class="mb-2">Teams</MudText>
+<MudTable T="Team" Items="@sortedTeams" Striped="true" Hover="true" Dense="true" Elevation="1">
+    <HeaderContent>
+        <MudTh>Team</MudTh>
+        <MudTh>Manager</MudTh>
+        <MudTh>W</MudTh>
+        <MudTh>L</MudTh>
+        <MudTh>T</MudTh>
+        <MudTh>PF</MudTh>
+        <MudTh>PA</MudTh>
+        <MudTh></MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Team">@context.TeamName</MudTd>
+        <MudTd DataLabel="Manager">@(context.OwnerId != null && ownerMap.TryGetValue(context.OwnerId, out var mgr) ? mgr : "—")</MudTd>
+        <MudTd DataLabel="W">@context.Wins</MudTd>
+        <MudTd DataLabel="L">@context.Losses</MudTd>
+        <MudTd DataLabel="T">@context.Ties</MudTd>
+        <MudTd DataLabel="PF">@context.PointsFor.ToString("F1")</MudTd>
+        <MudTd DataLabel="PA">@context.PointsAgainst.ToString("F1")</MudTd>
+        <MudTd>
+            <MudButton Href="@($"/league/{league.Id}/team/{context.Id}")" Size="Size.Small" Variant="Variant.Outlined">Roster</MudButton>
+        </MudTd>
+    </RowTemplate>
+    <NoRecordsContent>
+        <MudText Color="Color.Secondary">No teams loaded.</MudText>
+    </NoRecordsContent>
+</MudTable>
 
 @code {
     [Parameter]

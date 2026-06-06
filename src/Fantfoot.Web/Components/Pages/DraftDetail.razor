@@ -1,140 +1,129 @@
 @page "/league/{LeagueId}/draft"
 
-<PageTitle>Draft — @league?.Name ?? "League"</PageTitle>
+<PageTitle>Draft — @(league?.Name ?? "League")</PageTitle>
 
 @if (league == null || draftInfo == null)
 {
-    <p class="text-muted">Loading...</p>
+    <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
     return;
 }
 
-<div class="container-fluid">
-    <div class="row mb-4">
-        <div class="col">
-            <h1>@league.Name — Draft</h1>
-            <div class="d-flex align-items-center gap-2">
-                @{
-                    var badgeClass = draftInfo.Status == "complete" ? "bg-success" : "bg-warning text-dark";
-                    var badgeText = draftInfo.Status == "complete" ? "Complete" : "Pre-Draft";
-                }
-                <span class="badge @badgeClass">@badgeText</span>
-                <span class="text-muted">· @draftInfo.Type draft · @totalPicks total picks</span>
-            </div>
-        </div>
-        <div class="col-auto d-flex align-items-center">
-            <select class="form-select form-select-sm" @bind="selectedTeamId">
-                <option value="">All Teams</option>
-                @foreach (var (rosterId, teamName) in teamOptions)
-                {
-                    <option value="@rosterId">@teamName</option>
-                }
-            </select>
+@{
+    var badgeColor = draftInfo.Status == "complete" ? Color.Success : Color.Warning;
+    var badgeText = draftInfo.Status == "complete" ? "Complete" : "Pre-Draft";
+}
+
+<div style="display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:0.75rem; margin-bottom:1.5rem;">
+    <div>
+        <MudText Typo="Typo.h4">@league.Name — Draft</MudText>
+        <div style="display:flex; align-items:center; gap:0.5rem; margin-top:0.25rem;">
+            <MudChip T="string" Color="badgeColor" Size="Size.Small">@badgeText</MudChip>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">@draftInfo.Type draft &middot; @totalPicks total picks</MudText>
         </div>
     </div>
-
-    @if (draftInfo.Status == "pre_draft")
-    {
-        <h3>Draft Order</h3>
-        <p class="text-muted">The draft hasn't happened yet. Here's the planned order.</p>
-        @if (draftOrder != null && draftOrder.Count != 0)
-            {
-                <table class="table table-striped">
-                    <thead>
-                        <tr>
-                            <th>Round</th>
-                            <th>Pick</th>
-                            <th>Team</th>
-                            <th>Manager</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var (round, pick, teamName, managerName, origTeam) in draftOrder)
-                        {
-                            <tr>
-                                <td>@round</td>
-                                <td>@pick</td>
-                                <td>
-                                    @teamName
-                                    @if (origTeam != null)
-                                    {
-                                        <small class="text-muted">(from @origTeam)</small>
-                                    }
-                                </td>
-                                <td>@managerName</td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            }
-        else
+    <MudSelect T="string" @bind-Value="selectedTeamId"
+               Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined"
+               Style="min-width:200px;" Label="Filter by team">
+        <MudSelectItem T="string" Value='@("")'>All Teams</MudSelectItem>
+        @foreach (var (rosterId, teamName) in teamOptions)
         {
-            <p class="text-muted">Draft order not available.</p>
+            <MudSelectItem T="string" Value="@rosterId">@teamName</MudSelectItem>
         }
+    </MudSelect>
+</div>
+
+@if (draftInfo.Status == "pre_draft")
+{
+    <MudText Typo="Typo.h5" Class="mb-1">Draft Order</MudText>
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">The draft hasn't happened yet. Here's the planned order.</MudText>
+
+    @if (draftOrder != null && draftOrder.Count != 0)
+    {
+        <MudTable T="(int Round, int Pick, string TeamName, string ManagerName, string? OrigTeam)"
+                  Items="@draftOrder" Striped="true" Hover="true" Dense="true" Elevation="1">
+            <HeaderContent>
+                <MudTh>Round</MudTh>
+                <MudTh>Pick</MudTh>
+                <MudTh>Team</MudTh>
+                <MudTh>Manager</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Round">@context.Round</MudTd>
+                <MudTd DataLabel="Pick">@context.Pick</MudTd>
+                <MudTd DataLabel="Team">
+                    @context.TeamName
+                    @if (context.OrigTeam != null)
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">(from @context.OrigTeam)</MudText>
+                    }
+                </MudTd>
+                <MudTd DataLabel="Manager">@context.ManagerName</MudTd>
+            </RowTemplate>
+            <NoRecordsContent>
+                <MudText Color="Color.Secondary">Draft order not available.</MudText>
+            </NoRecordsContent>
+        </MudTable>
     }
     else
     {
-        var filteredPicks = string.IsNullOrEmpty(selectedTeamId)
-            ? picks
-            : picks.Where(p => p.TeamId == selectedTeamId).ToList();
-
-        <h3>Picks (@filteredPicks.Count)</h3>
-        <table class="table table-striped">
-            <thead>
-                    <tr>
-                        <th>Round</th>
-                        <th>Pick</th>
-                        <th>Team</th>
-                        <th>Manager</th>
-                        <th>Player</th>
-                        <th>Position</th>
-                        <th>NFL Team</th>
-                        <th>Keeper</th>
-                    </tr>
-            </thead>
-            <tbody>
-                @if (filteredPicks.Count == 0)
-                {
-                    <tr><td colspan="8" class="text-muted">No picks found.</td></tr>
-                }
-                else
-                {
-                    @foreach (var pick in filteredPicks.OrderBy(p => p.PickNumber))
-                    {
-                        var teamName = pick.TeamId != null && teamMap.TryGetValue(pick.TeamId, out var tn) ? tn : "—";
-                        var origTeam = (string?)null;
-                        if (slotOwnerMap.Count > 0 && pick.TeamId != null && int.TryParse(pick.TeamId, out var actualRosterId))
-                        {
-                            var numTeams = slotOwnerMap.Count;
-                            var pickInRound = (pick.PickNumber - 1) % numTeams + 1;
-                            var expectedSlot = isSnake && pick.Round % 2 == 0
-                                ? numTeams - pickInRound + 1
-                                : pickInRound;
-                            var origRosterId = slotOwnerMap.GetValueOrDefault(expectedSlot);
-                            if (origRosterId != 0 && actualRosterId != origRosterId && teamMap.TryGetValue(origRosterId.ToString(), out var ot))
-                                origTeam = ot;
-                        }
-                        <tr>
-                            <td>@pick.Round</td>
-                            <td>@pick.PickNumber</td>
-                            <td>
-                                @teamName
-                                @if (origTeam != null)
-                                {
-                                    <small class="text-muted">(from @origTeam)</small>
-                                }
-                            </td>
-                            <td>@(pick.TeamId != null && managerMap.TryGetValue(pick.TeamId, out var mgr) ? mgr : "—")</td>
-                            <td>@pick.PlayerName</td>
-                            <td>@pick.Position</td>
-                            <td>@pick.Team</td>
-                            <td>@(pick.IsKeeper == true ? "Yes" : "")</td>
-                        </tr>
-                    }
-                }
-            </tbody>
-        </table>
+        <MudText Color="Color.Secondary">Draft order not available.</MudText>
     }
-</div>
+}
+else
+{
+    var filteredPicks = string.IsNullOrEmpty(selectedTeamId)
+        ? picks
+        : picks.Where(p => p.TeamId == selectedTeamId).ToList();
+
+    <MudText Typo="Typo.h5" Class="mb-3">Picks (@filteredPicks.Count)</MudText>
+    <MudTable T="DraftPick" Items="@filteredPicks.OrderBy(p => p.PickNumber).ToList()"
+              Striped="true" Hover="true" Dense="true" Elevation="1">
+        <HeaderContent>
+            <MudTh>Round</MudTh>
+            <MudTh>Pick</MudTh>
+            <MudTh>Team</MudTh>
+            <MudTh>Manager</MudTh>
+            <MudTh>Player</MudTh>
+            <MudTh>Position</MudTh>
+            <MudTh>NFL Team</MudTh>
+            <MudTh>Keeper</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            @{
+                var teamName = context.TeamId != null && teamMap.TryGetValue(context.TeamId, out var tn) ? tn : "—";
+                var origTeam = (string?)null;
+                if (slotOwnerMap.Count > 0 && context.TeamId != null && int.TryParse(context.TeamId, out var actualRosterId))
+                {
+                    var numTeams = slotOwnerMap.Count;
+                    var pickInRound = (context.PickNumber - 1) % numTeams + 1;
+                    var expectedSlot = isSnake && context.Round % 2 == 0
+                        ? numTeams - pickInRound + 1
+                        : pickInRound;
+                    var origRosterId = slotOwnerMap.GetValueOrDefault(expectedSlot);
+                    if (origRosterId != 0 && actualRosterId != origRosterId && teamMap.TryGetValue(origRosterId.ToString(), out var ot))
+                        origTeam = ot;
+                }
+            }
+            <MudTd DataLabel="Round">@context.Round</MudTd>
+            <MudTd DataLabel="Pick">@context.PickNumber</MudTd>
+            <MudTd DataLabel="Team">
+                @teamName
+                @if (origTeam != null)
+                {
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">(from @origTeam)</MudText>
+                }
+            </MudTd>
+            <MudTd DataLabel="Manager">@(context.TeamId != null && managerMap.TryGetValue(context.TeamId, out var mgr) ? mgr : "—")</MudTd>
+            <MudTd DataLabel="Player">@context.PlayerName</MudTd>
+            <MudTd DataLabel="Position">@context.Position</MudTd>
+            <MudTd DataLabel="NFL Team">@context.Team</MudTd>
+            <MudTd DataLabel="Keeper">@(context.IsKeeper == true ? "Yes" : "")</MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText Color="Color.Secondary">No picks found.</MudText>
+        </NoRecordsContent>
+    </MudTable>
+}
 
 @code {
     [Parameter]
