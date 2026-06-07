@@ -2,7 +2,5 @@
   <Folder Name="/src/">
     <Project Path="src/Fantfoot.Web/Fantfoot.Web.csproj" />
   </Folder>
-  <Folder Name="/tests/">
-    <Project Path="tests/Fantfoot.PlaywrightTests/Fantfoot.PlaywrightTests.csproj" />
-  </Folder>
+  <Folder Name="/tests/" />
 </Solution>
