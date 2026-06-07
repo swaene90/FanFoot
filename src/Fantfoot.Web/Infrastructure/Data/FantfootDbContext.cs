@@ -104,6 +104,9 @@ public class FantfootDbContext : DbContext
         {
             e.HasKey(u => u.SleeperUserId);
             e.Property(u => u.SleeperUserId).HasMaxLength(50);
+            e.Property(u => u.Email).HasMaxLength(256);
+            e.Property(u => u.PasswordHash).HasMaxLength(500);
+            e.HasIndex(u => u.Email).IsUnique();
         });
 
         modelBuilder.Entity<ChatSession>(e =>

@@ -1,6 +1,8 @@
 using Fantfoot.Infrastructure;
 using MudBlazor.Services;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Identity;
+using Fantfoot.Domain;
 using Fantfoot.Infrastructure.Data;
 using Fantfoot.Infrastructure.Services;
 using Fantfoot.Web.Components;
@@ -14,6 +16,7 @@ builder.Services.AddDataProtection()
         builder.Configuration["DataProtection:KeysPath"] ?? "keys"));
 
 builder.Services.AddMudServices();
+builder.Services.AddScoped<IPasswordHasher<LocalUser>, PasswordHasher<LocalUser>>();
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();

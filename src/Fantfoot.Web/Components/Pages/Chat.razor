@@ -14,10 +14,9 @@
             <MudSelect T="string" Value="@selectedLeagueId" ValueChanged="OnLeagueSelectChanged"
                        Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined"
                        Style="min-width:220px; max-width:300px;">
-                <MudSelectItem T="string" Value='@("")'>All My Teams</MudSelectItem>
                 @foreach (var league in leagues)
                 {
-                    <MudSelectItem T="string" Value="@league.Id">@league.Name (@league.Season)</MudSelectItem>
+                    <MudSelectItem T="string" Value="@league.Id">@league.Name</MudSelectItem>
                 }
             </MudSelect>
         }
@@ -123,11 +122,14 @@
         {
             var teams = await Db.Teams.Where(t => t.OwnerId == userId).ToListAsync();
             var leagueIds = teams.Select(t => t.LeagueId).Distinct().ToList();
-            leagues = await Db.Leagues
+            var allLeagues = await Db.Leagues
                 .Where(l => leagueIds.Contains(l.Id))
-                .OrderByDescending(l => l.Season)
-                .ThenBy(l => l.Name)
                 .ToListAsync();
+            var currentSeason = allLeagues.Max(l => l.Season);
+            leagues = allLeagues
+                .Where(l => l.Season == currentSeason)
+                .OrderBy(l => l.Name)
+                .ToList();
 
             if (leagues.Count > 0)
             {
