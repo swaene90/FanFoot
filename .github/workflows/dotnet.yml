@@ -30,8 +30,6 @@ jobs:
     needs: build
     if: github.ref == 'refs/heads/master' && github.event_name == 'push'
     steps:
+    - uses: actions/checkout@v4
     - name: Deploy to Unraid
-      run: |
-        cd /mnt/user/appdata/fantfoot
-        git pull origin master
-        docker compose up --build -d
+      run: docker compose up --build -d
