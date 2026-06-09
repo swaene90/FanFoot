@@ -33,5 +33,6 @@ jobs:
     - name: Deploy to Unraid
       working-directory: /mnt/user/appdata/fantfoot
       run: |
+        git config --global --add safe.directory /mnt/user/appdata/fantfoot
         git pull origin master
         docker compose up --build -d
