@@ -1,5 +1,7 @@
 ﻿using Fanfoot.Infrastructure;
 using MudBlazor.Services;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Fanfoot.Domain;
@@ -8,6 +10,7 @@ using Fanfoot.Infrastructure.Services;
 using Fanfoot.Web.Components;
 using Fanfoot.Web.Services;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,6 +20,24 @@ builder.Services.AddDataProtection()
 
 builder.Services.AddMudServices();
 builder.Services.AddScoped<IPasswordHasher<LocalUser>, PasswordHasher<LocalUser>>();
+
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(options =>
+    {
+        options.Cookie.HttpOnly = true;
+        options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+        options.Events.OnRedirectToLogin = ctx =>
+        {
+            ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            return Task.CompletedTask;
+        };
+        options.Events.OnRedirectToAccessDenied = ctx =>
+        {
+            ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
+            return Task.CompletedTask;
+        };
+    });
+builder.Services.AddAuthorization();
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
@@ -61,15 +82,49 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseStaticFiles();
+app.UseAuthentication();
+app.UseAuthorization();
 app.UseAntiforgery();
+
+app.MapPost("/api/auth/login", async (
+    LoginRequest request,
+    FanfootDbContext db,
+    IPasswordHasher<LocalUser> hasher,
+    HttpContext ctx) =>
+{
+    var user = await db.LocalUsers.FirstOrDefaultAsync(u => u.Email == request.Email);
+    if (user?.PasswordHash == null)
+        return Results.Unauthorized();
+
+    var result = hasher.VerifyHashedPassword(user, user.PasswordHash, request.Password);
+    if (result == PasswordVerificationResult.Failed)
+        return Results.Unauthorized();
+
+    var claims = new List<Claim>
+    {
+        new(ClaimTypes.NameIdentifier, user.SleeperUserId),
+        new(ClaimTypes.Email, user.Email ?? "")
+    };
+    var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+    await ctx.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(identity));
+    return Results.Ok();
+});
+
+app.MapPost("/api/auth/logout", async (HttpContext ctx) =>
+{
+    await ctx.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+    return Results.Ok();
+}).RequireAuthorization();
 
 app.MapPost("/api/players/import", async (LeagueService leagueService) =>
 {
     var count = await leagueService.ImportPlayersAsync();
     return Results.Ok(new { imported = count });
-});
+}).RequireAuthorization();
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
 app.Run();
+
+record LoginRequest(string Email, string Password);
