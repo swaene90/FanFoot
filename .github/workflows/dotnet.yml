@@ -30,8 +30,8 @@ jobs:
     needs: build
     if: github.ref == 'refs/heads/master' && github.event_name == 'push'
     steps:
-    - uses: actions/checkout@v4
-    - name: Stop old container
-      run: docker stop fantfoot-web-1 || true
     - name: Deploy to Unraid
-      run: docker compose --env-file /mnt/user/appdata/fantfoot/.env up --build -d
+      working-directory: /mnt/user/appdata/fantfoot
+      run: |
+        git pull origin master
+        docker compose up --build -d
