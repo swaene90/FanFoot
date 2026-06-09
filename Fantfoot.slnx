@@ -1,6 +1,0 @@
-<Solution>
-  <Folder Name="/src/">
-    <Project Path="src/Fantfoot.Web/Fantfoot.Web.csproj" />
-  </Folder>
-  <Folder Name="/tests/" />
-</Solution>

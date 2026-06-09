@@ -1,8 +1,8 @@
-using Microsoft.EntityFrameworkCore.Migrations;
+﻿using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace Fantfoot.Web.Migrations
+namespace Fanfoot.Web.Migrations
 {
     /// <inheritdoc />
     public partial class AddEmailPasswordToLocalUser : Migration

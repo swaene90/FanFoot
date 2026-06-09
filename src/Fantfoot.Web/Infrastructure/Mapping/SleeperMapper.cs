@@ -1,8 +1,8 @@
-using System.Text.Json;
-using Fantfoot.Domain;
-using Fantfoot.Infrastructure.Clients;
+﻿using System.Text.Json;
+using Fanfoot.Domain;
+using Fanfoot.Infrastructure.Clients;
 
-namespace Fantfoot.Infrastructure.Mapping;
+namespace Fanfoot.Infrastructure.Mapping;
 
 public static class SleeperMapper
 {

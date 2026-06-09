@@ -1,8 +1,8 @@
-using System.Net.Http.Json;
+﻿using System.Net.Http.Json;
 using System.Text.Json;
-using Fantfoot.Domain;
+using Fanfoot.Domain;
 
-namespace Fantfoot.Infrastructure.Clients;
+namespace Fanfoot.Infrastructure.Clients;
 
 public class SleeperClient
 {

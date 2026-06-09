@@ -1,4 +1,4 @@
-@page "/league/{LeagueId}/team/{TeamId}"
+﻿@page "/league/{LeagueId}/team/{TeamId}"
 @using System.Text.Json
 
 <PageTitle>@(team?.TeamName ?? "Team")</PageTitle>
@@ -61,7 +61,7 @@ else
     private LeagueService LeagueService { get; set; } = default!;
 
     [Inject]
-    private FantfootDbContext Db { get; set; } = default!;
+    private FanfootDbContext Db { get; set; } = default!;
 
     protected override async Task OnInitializedAsync()
     {

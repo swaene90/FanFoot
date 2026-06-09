@@ -1,4 +1,4 @@
-bin/
+﻿bin/
 keys/
 obj/
 *.db
@@ -11,5 +11,5 @@ obj/
 .vs/
 CLAUDE.local.md
 .env
-src/Fantfoot.Web/appsettings.Development.json
+src/Fanfoot.Web/appsettings.Development.json
 .claude/

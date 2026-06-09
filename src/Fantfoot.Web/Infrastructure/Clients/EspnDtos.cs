@@ -1,6 +1,6 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 
-namespace Fantfoot.Infrastructure.Clients;
+namespace Fanfoot.Infrastructure.Clients;
 
 public class EspnNewsResponseDto
 {

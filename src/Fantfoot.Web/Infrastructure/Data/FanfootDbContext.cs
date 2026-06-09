@@ -1,11 +1,11 @@
-using Microsoft.EntityFrameworkCore;
-using Fantfoot.Domain;
+﻿using Microsoft.EntityFrameworkCore;
+using Fanfoot.Domain;
 
-namespace Fantfoot.Infrastructure.Data;
+namespace Fanfoot.Infrastructure.Data;
 
-public class FantfootDbContext : DbContext
+public class FanfootDbContext : DbContext
 {
-    public FantfootDbContext(DbContextOptions<FantfootDbContext> options) : base(options) { }
+    public FanfootDbContext(DbContextOptions<FanfootDbContext> options) : base(options) { }
 
     public DbSet<Player> Players => Set<Player>();
     public DbSet<League> Leagues => Set<League>();

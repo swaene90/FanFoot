@@ -1,17 +1,17 @@
-using System.Net.Http.Json;
+﻿using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Fantfoot.Domain;
-using Fantfoot.Infrastructure.Clients;
-using Fantfoot.Infrastructure.Data;
+using Fanfoot.Domain;
+using Fanfoot.Infrastructure.Clients;
+using Fanfoot.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 
-namespace Fantfoot.Web.Services;
+namespace Fanfoot.Web.Services;
 
 public class ChatService
 {
-    private readonly FantfootDbContext _db;
+    private readonly FanfootDbContext _db;
     private readonly SleeperClient _sleeper;
     private readonly FantasyCalcClient _fantasyCalc;
     private readonly IHttpClientFactory _httpFactory;
@@ -26,7 +26,7 @@ public class ChatService
     private Dictionary<string, FantasyCalcValueDto> _valuesByName = [];
 
     public ChatService(
-        FantfootDbContext db,
+        FanfootDbContext db,
         SleeperClient sleeper,
         FantasyCalcClient fantasyCalc,
         IHttpClientFactory httpClientFactory,

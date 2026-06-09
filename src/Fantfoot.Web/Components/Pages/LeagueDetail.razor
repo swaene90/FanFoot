@@ -1,4 +1,4 @@
-@page "/league/{LeagueId}"
+﻿@page "/league/{LeagueId}"
 
 <PageTitle>@(league?.Name ?? "League")</PageTitle>
 
@@ -83,7 +83,7 @@
     private LeagueService LeagueService { get; set; } = default!;
 
     [Inject]
-    private FantfootDbContext Db { get; set; } = default!;
+    private FanfootDbContext Db { get; set; } = default!;
 
     protected override async Task OnInitializedAsync()
     {

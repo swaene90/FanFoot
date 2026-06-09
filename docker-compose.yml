@@ -1,4 +1,4 @@
-services:
+﻿services:
   web:
     build:
       context: .
@@ -11,8 +11,8 @@ services:
       - GroqApiKey=${GROQ_API_KEY}
       - DataProtection__KeysPath=/data/keys
     volumes:
-      - fantfoot-data:/data
+      - fanfoot-data:/data
     restart: unless-stopped
 
 volumes:
-  fantfoot-data:
+  fanfoot-data:

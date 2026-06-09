@@ -1,4 +1,4 @@
-namespace Fantfoot.Domain;
+﻿namespace Fanfoot.Domain;
 
 public class LocalUser
 {

@@ -1,4 +1,4 @@
-# Fantfoot UI Style Guide
+﻿# Fanfoot UI Style Guide
 
 ## Framework
 **MudBlazor v9.5.0** — all UI components come from MudBlazor. Bootstrap is not used.
@@ -56,7 +56,7 @@ Inspired by the Lions' black alternate uniform.
 
 Dark mode is **not** handled by MudBlazor theme variables alone (they don't propagate to `html`/`body` in v9). Instead:
 
-1. **JS function** `fantfoot.setBackground(isDark)` in `App.razor` sets inline styles on `html` and `body`, and toggles the `body.dark-mode` CSS class.
+1. **JS function** `fanfoot.setBackground(isDark)` in `App.razor` sets inline styles on `html` and `body`, and toggles the `body.dark-mode` CSS class.
 2. **CSS** in `app.css` uses `body.dark-mode` selectors to override typography, nav, and component colors.
 3. **Preference** is saved per-user in the `UserPreferences` table (`UserId`, `IsDarkMode`, `UpdatedAt`) and loaded in `MainLayout.OnAfterRenderAsync`.
 
@@ -70,7 +70,7 @@ Dark mode is **not** handled by MudBlazor theme variables alone (they don't prop
 MudLayout
 ├── MudAppBar (Dense, Elevation 2)
 │   ├── Hamburger menu toggle
-│   ├── "Fantfoot" title
+│   ├── "Fanfoot" title
 │   ├── [Spacer]
 │   ├── Dark/Light mode toggle icon
 │   └── Sign Out button

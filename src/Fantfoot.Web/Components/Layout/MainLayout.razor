@@ -1,4 +1,4 @@
-@inherits LayoutComponentBase
+﻿@inherits LayoutComponentBase
 @implements IDisposable
 
 <MudThemeProvider Theme="_theme" IsDarkMode="@_isDarkMode" />
@@ -9,7 +9,7 @@
 <MudLayout>
     <MudAppBar Elevation="2" Dense="true" Style="@(_isDarkMode ? "border-bottom: 2px solid #0076B6;" : "")">
         <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="ToggleDrawer" />
-        <MudText Typo="Typo.h6" Class="ml-2" Style="color:inherit;">Fantfoot</MudText>
+        <MudText Typo="Typo.h6" Class="ml-2" Style="color:inherit;">Fanfoot</MudText>
         <MudSpacer />
         <MudIconButton Icon="@(_isDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
                        Color="Color.Inherit" OnClick="ToggleDarkMode" />
@@ -34,7 +34,7 @@
 @code {
     [Inject] private IJSRuntime JS { get; set; } = default!;
     [Inject] private NavigationManager Navigation { get; set; } = default!;
-    [Inject] private FantfootDbContext Db { get; set; } = default!;
+    [Inject] private FanfootDbContext Db { get; set; } = default!;
 
     private bool _drawerOpen = true;
     private bool _isDarkMode = false;
@@ -113,7 +113,7 @@
         if (!firstRender || _initialized) return;
         _initialized = true;
 
-        _userId = await JS.InvokeAsync<string?>("fantfoot.getCookie", "fantfoot_user");
+        _userId = await JS.InvokeAsync<string?>("fanfoot.getCookie", "fanfoot_user");
 
         await GuardAsync();
 
@@ -133,7 +133,7 @@
     {
         InvokeAsync(async () =>
         {
-            _userId = await JS.InvokeAsync<string?>("fantfoot.getCookie", "fantfoot_user");
+            _userId = await JS.InvokeAsync<string?>("fanfoot.getCookie", "fanfoot_user");
             await GuardAsync();
         });
     }
@@ -173,12 +173,12 @@
 
     private async Task ApplyBackground()
     {
-        await JS.InvokeVoidAsync("fantfoot.setBackground", _isDarkMode);
+        await JS.InvokeVoidAsync("fanfoot.setBackground", _isDarkMode);
     }
 
     private async Task SignOut()
     {
-        await JS.InvokeVoidAsync("fantfoot.removeCookie", "fantfoot_user");
+        await JS.InvokeVoidAsync("fanfoot.removeCookie", "fanfoot_user");
         Navigation.NavigateTo("/", forceLoad: true);
     }
 }

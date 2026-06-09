@@ -1,6 +1,6 @@
-using Fantfoot.Infrastructure.Services;
+﻿using Fanfoot.Infrastructure.Services;
 
-namespace Fantfoot.Web.Services;
+namespace Fanfoot.Web.Services;
 
 public class PlayerImportService : BackgroundService
 {

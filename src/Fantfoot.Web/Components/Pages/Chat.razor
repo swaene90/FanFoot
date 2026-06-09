@@ -1,7 +1,7 @@
-@page "/chat"
-@using Fantfoot.Web.Services
-@using Fantfoot.Infrastructure.Data
-@using Fantfoot.Domain
+﻿@page "/chat"
+@using Fanfoot.Web.Services
+@using Fanfoot.Infrastructure.Data
+@using Fanfoot.Domain
 @using Microsoft.EntityFrameworkCore
 
 <PageTitle>AI Chat</PageTitle>
@@ -92,7 +92,7 @@
 
 @code {
     [Inject] private ChatService ChatService { get; set; } = default!;
-    [Inject] private FantfootDbContext Db { get; set; } = default!;
+    [Inject] private FanfootDbContext Db { get; set; } = default!;
     [Inject] private IJSRuntime JS { get; set; } = default!;
 
     private bool loading;
@@ -117,7 +117,7 @@
         initializing = true;
         StateHasChanged();
 
-        userId = await JS.InvokeAsync<string?>("fantfoot.getCookie", "fantfoot_user");
+        userId = await JS.InvokeAsync<string?>("fanfoot.getCookie", "fanfoot_user");
         if (!string.IsNullOrEmpty(userId))
         {
             var teams = await Db.Teams.Where(t => t.OwnerId == userId).ToListAsync();
@@ -232,7 +232,7 @@
 
     private async Task ScrollToBottom()
     {
-        try { await JS.InvokeVoidAsync("fantfoot.scrollToBottom", messagesContainer); }
+        try { await JS.InvokeVoidAsync("fanfoot.scrollToBottom", messagesContainer); }
         catch { }
     }
 

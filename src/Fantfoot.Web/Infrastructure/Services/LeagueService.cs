@@ -1,17 +1,17 @@
-using Microsoft.EntityFrameworkCore;
-using Fantfoot.Domain;
-using Fantfoot.Infrastructure.Data;
-using Fantfoot.Infrastructure.Clients;
-using Fantfoot.Infrastructure.Mapping;
+﻿using Microsoft.EntityFrameworkCore;
+using Fanfoot.Domain;
+using Fanfoot.Infrastructure.Data;
+using Fanfoot.Infrastructure.Clients;
+using Fanfoot.Infrastructure.Mapping;
 
-namespace Fantfoot.Infrastructure.Services;
+namespace Fanfoot.Infrastructure.Services;
 
 public class LeagueService
 {
-    private readonly FantfootDbContext _db;
+    private readonly FanfootDbContext _db;
     private readonly SleeperClient _sleeper;
 
-    public LeagueService(FantfootDbContext db, SleeperClient sleeper)
+    public LeagueService(FanfootDbContext db, SleeperClient sleeper)
     {
         _db = db;
         _sleeper = sleeper;

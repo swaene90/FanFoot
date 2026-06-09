@@ -1,7 +1,7 @@
-using System.Net.Http.Json;
+﻿using System.Net.Http.Json;
 using System.Text.Json;
 
-namespace Fantfoot.Infrastructure.Clients;
+namespace Fanfoot.Infrastructure.Clients;
 
 public class FantasyCalcClient
 {

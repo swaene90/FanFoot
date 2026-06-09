@@ -1,15 +1,15 @@
-@page "/"
+﻿@page "/"
 @implements IDisposable
 @using Microsoft.AspNetCore.Identity
 @using Microsoft.EntityFrameworkCore
 
-<PageTitle>Fantfoot - Sign In</PageTitle>
+<PageTitle>Fanfoot - Sign In</PageTitle>
 
 <MudGrid Justify="Justify.Center" Class="mt-10">
     <MudItem xs="12" sm="8" md="5" lg="4">
         <MudCard Elevation="2">
             <MudCardContent Class="pa-6">
-                <MudText Typo="Typo.h4" Align="Align.Center" Class="mb-2">Fantfoot</MudText>
+                <MudText Typo="Typo.h4" Align="Align.Center" Class="mb-2">Fanfoot</MudText>
                 <MudText Typo="Typo.body1" Color="Color.Secondary" Align="Align.Center" Class="mb-4">
                     Track your Sleeper fantasy leagues.
                 </MudText>
@@ -122,7 +122,7 @@
     [Inject] private NavigationManager Navigation { get; set; } = default!;
     [Inject] private SleeperClient Sleeper { get; set; } = default!;
     [Inject] private LeagueService LeagueService { get; set; } = default!;
-    [Inject] private FantfootDbContext Db { get; set; } = default!;
+    [Inject] private FanfootDbContext Db { get; set; } = default!;
     [Inject] private IPasswordHasher<LocalUser> Hasher { get; set; } = default!;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -132,7 +132,7 @@
 
         try
         {
-            var userId = await JS.InvokeAsync<string?>("fantfoot.getCookie", _cts.Token, "fantfoot_user");
+            var userId = await JS.InvokeAsync<string?>("fanfoot.getCookie", _cts.Token, "fanfoot_user");
             if (!string.IsNullOrEmpty(userId))
             {
                 var localUser = await Db.LocalUsers.FindAsync([userId], _cts.Token);
@@ -175,7 +175,7 @@
                 return;
             }
 
-            await JS.InvokeVoidAsync("fantfoot.setCookie", "fantfoot_user", localUser.SleeperUserId, 604800);
+            await JS.InvokeVoidAsync("fanfoot.setCookie", "fanfoot_user", localUser.SleeperUserId, 604800);
             Navigation.NavigateTo($"/user/{localUser.SleeperUserId}", replace: true);
         }
         catch (Exception ex)
@@ -276,7 +276,7 @@
             }
 
             await Db.SaveChangesAsync();
-            await JS.InvokeVoidAsync("fantfoot.setCookie", "fantfoot_user", userId, 604800);
+            await JS.InvokeVoidAsync("fanfoot.setCookie", "fanfoot_user", userId, 604800);
             Navigation.NavigateTo($"/user/{userId}", replace: true);
         }
         catch (Exception ex)

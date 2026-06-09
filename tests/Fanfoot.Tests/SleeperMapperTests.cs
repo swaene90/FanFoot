@@ -1,8 +1,8 @@
-using Fantfoot.Infrastructure.Clients;
-using Fantfoot.Infrastructure.Mapping;
+﻿using Fanfoot.Infrastructure.Clients;
+using Fanfoot.Infrastructure.Mapping;
 using Xunit;
 
-namespace Fantfoot.Tests;
+namespace Fanfoot.Tests;
 
 public class SleeperMapperTests
 {

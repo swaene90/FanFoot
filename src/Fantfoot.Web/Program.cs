@@ -1,12 +1,12 @@
-using Fantfoot.Infrastructure;
+﻿using Fanfoot.Infrastructure;
 using MudBlazor.Services;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
-using Fantfoot.Domain;
-using Fantfoot.Infrastructure.Data;
-using Fantfoot.Infrastructure.Services;
-using Fantfoot.Web.Components;
-using Fantfoot.Web.Services;
+using Fanfoot.Domain;
+using Fanfoot.Infrastructure.Data;
+using Fanfoot.Infrastructure.Services;
+using Fanfoot.Web.Components;
+using Fanfoot.Web.Services;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -22,8 +22,8 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? "Data Source=fantfoot.db";
-builder.Services.AddFantfootInfrastructure(connectionString);
+    ?? "Data Source=fanfoot.db";
+builder.Services.AddFanfootInfrastructure(connectionString);
 builder.Services.AddHostedService<PlayerImportService>();
 builder.Services.AddScoped<ChatService>();
 var groqApiKey = builder.Configuration["GroqApiKey"];
@@ -51,7 +51,7 @@ var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
 {
-    var db = scope.ServiceProvider.GetRequiredService<FantfootDbContext>();
+    var db = scope.ServiceProvider.GetRequiredService<FanfootDbContext>();
     db.Database.Migrate();
 }
 
