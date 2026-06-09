@@ -31,5 +31,7 @@ jobs:
     if: github.ref == 'refs/heads/master' && github.event_name == 'push'
     steps:
     - uses: actions/checkout@v4
+    - name: Stop old container
+      run: docker stop fantfoot-web-1 || true
     - name: Deploy to Unraid
       run: docker compose up --build -d
