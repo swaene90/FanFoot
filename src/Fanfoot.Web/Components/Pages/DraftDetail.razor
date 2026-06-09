@@ -39,7 +39,7 @@
 
     @if (draftOrder != null && draftOrder.Count != 0)
     {
-        <MudTable T="(int Round, int Pick, string TeamName, string ManagerName, string? OrigTeam)"
+        <MudTable T="(int Round, int Pick, string TeamName, string ManagerName, string OrigTeam)"
                   Items="@draftOrder" Striped="true" Hover="true" Dense="true" Elevation="1">
             <HeaderContent>
                 <MudTh>Round</MudTh>
@@ -52,7 +52,7 @@
                 <MudTd DataLabel="Pick">@context.Pick</MudTd>
                 <MudTd DataLabel="Team">
                     @context.TeamName
-                    @if (context.OrigTeam != null)
+                    @if (!string.IsNullOrEmpty(context.OrigTeam))
                     {
                         <MudText Typo="Typo.caption" Color="Color.Secondary">(from @context.OrigTeam)</MudText>
                     }
@@ -91,7 +91,7 @@ else
         <RowTemplate>
             @{
                 var teamName = context.TeamId != null && teamMap.TryGetValue(context.TeamId, out var tn) ? tn : "—";
-                var origTeam = (string?)null;
+                var origTeam = "";
                 if (slotOwnerMap.Count > 0 && context.TeamId != null && int.TryParse(context.TeamId, out var actualRosterId))
                 {
                     var numTeams = slotOwnerMap.Count;
@@ -108,7 +108,7 @@ else
             <MudTd DataLabel="Pick">@context.PickNumber</MudTd>
             <MudTd DataLabel="Team">
                 @teamName
-                @if (origTeam != null)
+                @if (!string.IsNullOrEmpty(origTeam))
                 {
                     <MudText Typo="Typo.caption" Color="Color.Secondary">(from @origTeam)</MudText>
                 }
@@ -141,7 +141,7 @@ else
     private Dictionary<string, string> managerMap = [];
     private Dictionary<string, string> userManagerMap = [];
     private List<(string RosterId, string TeamName)> teamOptions = [];
-    private List<(int Round, int Pick, string TeamName, string ManagerName, string? OrigTeam)>? draftOrder;
+    private List<(int Round, int Pick, string TeamName, string ManagerName, string OrigTeam)>? draftOrder;
     private Dictionary<int, int> slotOwnerMap = [];
     private Dictionary<string, int> userIdToRosterMap = [];
     private bool isSnake;
@@ -245,7 +245,7 @@ else
                     var managerName = managerMap.GetValueOrDefault(rosterIdStr, "—");
                     var origTeam = actualRosterId != rosterId
                         ? teamMap.GetValueOrDefault(rosterId.ToString(), $"Team {rosterId}")
-                        : null;
+                        : "";
                     draftOrder.Add((round, pick++, teamName, managerName, origTeam));
                 }
             }
@@ -281,7 +281,7 @@ else
                         : userManagerMap.GetValueOrDefault(userId, "—");
                     var origTeam = actualRosterId != origRosterId && origRosterId > 0
                         ? teamMap.GetValueOrDefault(origRosterId.ToString(), $"Team {origRosterId}")
-                        : null;
+                        : "";
                     draftOrder.Add((round, pick++, teamName, managerName, origTeam));
                 }
             }
