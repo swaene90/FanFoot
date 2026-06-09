@@ -1,4 +1,22 @@
-﻿services:
+services:
+  db:
+    image: postgres:17
+    profiles: ["local"]
+    environment:
+      POSTGRES_DB: fanfoot
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - fanfoot-db-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d fanfoot"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   web:
     build:
       context: .
@@ -6,7 +24,7 @@
     ports:
       - "5020:8080"
     environment:
-      - ConnectionStrings__DefaultConnection=${DB_CONNECTION_STRING}
+      - ConnectionStrings__DefaultConnection=${DB_CONNECTION_STRING:-Host=db;Port=5432;Database=fanfoot;Username=postgres;Password=password}
       - OllamaUrl=${OLLAMA_URL:-http://192.168.0.48:11434/}
       - GroqApiKey=${GROQ_API_KEY}
       - DataProtection__KeysPath=/data/keys
@@ -15,4 +33,5 @@
     restart: unless-stopped
 
 volumes:
+  fanfoot-db-data:
   fanfoot-data:

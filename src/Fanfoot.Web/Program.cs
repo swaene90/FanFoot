@@ -38,6 +38,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         };
     });
 builder.Services.AddAuthorization();
+builder.Services.AddOpenApi();
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
@@ -72,8 +73,19 @@ var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
 {
-    var db = scope.ServiceProvider.GetRequiredService<FanfootDbContext>();
-    db.Database.Migrate();
+    try
+    {
+        var db = scope.ServiceProvider.GetRequiredService<FanfootDbContext>();
+        db.Database.Migrate();
+
+        if (app.Environment.IsDevelopment())
+            await DatabaseSeeder.SeedAsync(scope.ServiceProvider);
+    }
+    catch (Exception ex)
+    {
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+        logger.LogWarning(ex, "Database migration skipped — no database connection");
+    }
 }
 
 if (!app.Environment.IsDevelopment())
@@ -85,6 +97,7 @@ app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseAntiforgery();
+app.MapOpenApi();
 
 app.MapPost("/api/auth/login", async (
     LoginRequest request,

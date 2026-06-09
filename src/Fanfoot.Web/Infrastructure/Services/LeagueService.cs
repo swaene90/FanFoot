@@ -1,4 +1,7 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System.Text.Json;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Hosting;
 using Fanfoot.Domain;
 using Fanfoot.Infrastructure.Data;
 using Fanfoot.Infrastructure.Clients;
@@ -10,11 +13,15 @@ public class LeagueService
 {
     private readonly FanfootDbContext _db;
     private readonly SleeperClient _sleeper;
+    private readonly IWebHostEnvironment _env;
 
-    public LeagueService(FanfootDbContext db, SleeperClient sleeper)
+    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
+
+    public LeagueService(FanfootDbContext db, SleeperClient sleeper, IWebHostEnvironment env)
     {
         _db = db;
         _sleeper = sleeper;
+        _env = env;
     }
 
     public async Task<List<League>> GetLeaguesAsync()
@@ -94,7 +101,17 @@ public class LeagueService
 
     public async Task<int> ImportPlayersAsync(CancellationToken ct = default)
     {
-        var playerDtos = await _sleeper.GetAllPlayersAsync(ct) ?? [];
+        Dictionary<string, SleeperPlayerDto> playerDtos;
+        var filePath = Path.Combine(_env.ContentRootPath, "Data", "players.json");
+        if (_env.IsDevelopment() && File.Exists(filePath))
+        {
+            await using var stream = File.OpenRead(filePath);
+            playerDtos = await JsonSerializer.DeserializeAsync<Dictionary<string, SleeperPlayerDto>>(stream, JsonOptions, ct) ?? [];
+        }
+        else
+        {
+            playerDtos = await _sleeper.GetAllPlayersAsync(ct) ?? [];
+        }
         var players = playerDtos.Select(kvp => SleeperMapper.ToPlayer(kvp.Value)).ToList();
 
         var existingIds = await _db.Players.Select(p => p.Id).ToListAsync(ct);

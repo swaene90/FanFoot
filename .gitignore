@@ -13,3 +13,4 @@ CLAUDE.local.md
 .env
 src/Fanfoot.Web/appsettings.Development.json
 .claude/
+src/Fanfoot.Web/Fanfoot.Web.json

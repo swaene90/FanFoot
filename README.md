@@ -27,33 +27,7 @@ A Blazor Interactive Server app for tracking Sleeper fantasy football leagues, w
 
 ## Running Locally
 
-### Prerequisites
-
-- [.NET 10 SDK](https://dotnet.microsoft.com/download)
-- PostgreSQL instance
-- [Ollama](https://ollama.com) running locally with `qwen2.5:7b` pulled
-
-### Configuration
-
-Copy the example env and fill in your values:
-
-```bash
-cp .env.example .env
-```
-
-| Variable | Description |
-|---|---|
-| `DB_CONNECTION_STRING` | PostgreSQL connection string |
-| `OllamaUrl` | Ollama base URL (default: `http://localhost:11434/`) |
-
-### Run
-
-```bash
-cd src/Fanfoot.Web
-dotnet run
-```
-
-Open `http://localhost:5020` and sign in with your Sleeper username.
+See [local-development.md](local-development.md) for full setup instructions.
 
 ## Docker
 
