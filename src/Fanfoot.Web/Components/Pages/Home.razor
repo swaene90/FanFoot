@@ -1,0 +1,317 @@
+﻿@page "/"
+@implements IDisposable
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.EntityFrameworkCore
+
+<PageTitle>Fanfoot - Sign In</PageTitle>
+
+<MudGrid Justify="Justify.Center" Class="mt-10">
+    <MudItem xs="12" sm="8" md="5" lg="4">
+        <MudCard Elevation="2">
+            <MudCardContent Class="pa-6">
+                <MudText Typo="Typo.h4" Align="Align.Center" Class="mb-2">Fanfoot</MudText>
+                <MudText Typo="Typo.body1" Color="Color.Secondary" Align="Align.Center" Class="mb-4">
+                    Track your Sleeper fantasy leagues.
+                </MudText>
+
+                @if (checkingSession || loading)
+                {
+                    <div style="display:flex; flex-direction:column; align-items:center; padding: 2rem 0;">
+                        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+                        @if (loading)
+                        {
+                            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-2">@loadingMessage</MudText>
+                        }
+                    </div>
+                }
+                else
+                {
+                    @if (!string.IsNullOrEmpty(error))
+                    {
+                        <MudAlert Severity="Severity.Error" Class="mb-3" Dense="true">@error</MudAlert>
+                    }
+
+                    <MudTabs Centered="true" ActivePanelIndexChanged="@(_ => error = null)">
+                        <MudTabPanel Text="Sign In">
+                            <form @onsubmit="SignIn" class="mt-4">
+                                <MudTextField T="string" @bind-Value="loginEmail"
+                                              Label="Email"
+                                              InputType="InputType.Email"
+                                              Variant="Variant.Outlined"
+                                              Margin="Margin.Dense"
+                                              Class="mb-3" />
+                                <MudTextField T="string" @bind-Value="loginPassword"
+                                              Label="Password"
+                                              InputType="InputType.Password"
+                                              Variant="Variant.Outlined"
+                                              Margin="Margin.Dense"
+                                              Class="mb-4" />
+                                <MudButton ButtonType="ButtonType.Submit"
+                                           Variant="Variant.Filled"
+                                           Color="Color.Primary"
+                                           FullWidth="true"
+                                           Size="Size.Large"
+                                           Disabled="@(string.IsNullOrWhiteSpace(loginEmail) || string.IsNullOrWhiteSpace(loginPassword))">
+                                    Sign In
+                                </MudButton>
+                            </form>
+                        </MudTabPanel>
+
+                        <MudTabPanel Text="Register">
+                            <form @onsubmit="Register" class="mt-4">
+                                <MudTextField T="string" @bind-Value="regEmail"
+                                              Label="Email"
+                                              InputType="InputType.Email"
+                                              Variant="Variant.Outlined"
+                                              Margin="Margin.Dense"
+                                              Class="mb-3" />
+                                <MudTextField T="string" @bind-Value="regPassword"
+                                              Label="Password"
+                                              InputType="InputType.Password"
+                                              Variant="Variant.Outlined"
+                                              Margin="Margin.Dense"
+                                              Class="mb-3" />
+                                <MudTextField T="string" @bind-Value="regConfirm"
+                                              Label="Confirm Password"
+                                              InputType="InputType.Password"
+                                              Variant="Variant.Outlined"
+                                              Margin="Margin.Dense"
+                                              Class="mb-3" />
+                                <MudTextField T="string" @bind-Value="regSleeperUsername"
+                                              Label="Sleeper Username"
+                                              Variant="Variant.Outlined"
+                                              Margin="Margin.Dense"
+                                              Class="mb-4" />
+                                <MudButton ButtonType="ButtonType.Submit"
+                                           Variant="Variant.Filled"
+                                           Color="Color.Primary"
+                                           FullWidth="true"
+                                           Size="Size.Large"
+                                           Disabled="@(string.IsNullOrWhiteSpace(regEmail) || string.IsNullOrWhiteSpace(regPassword) || string.IsNullOrWhiteSpace(regSleeperUsername))">
+                                    Create Account
+                                </MudButton>
+                            </form>
+                        </MudTabPanel>
+                    </MudTabs>
+                }
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private const string AuthorizedLeagueId = "1354116239798046720";
+
+    // Sign In
+    private string loginEmail = string.Empty;
+    private string loginPassword = string.Empty;
+
+    // Register
+    private string regEmail = string.Empty;
+    private string regPassword = string.Empty;
+    private string regConfirm = string.Empty;
+    private string regSleeperUsername = string.Empty;
+
+    private string? error;
+    private string loadingMessage = string.Empty;
+    private bool checkingSession = true;
+    private bool loading;
+    private CancellationTokenSource? _cts;
+
+    [Inject] private IJSRuntime JS { get; set; } = default!;
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+    [Inject] private SleeperClient Sleeper { get; set; } = default!;
+    [Inject] private LeagueService LeagueService { get; set; } = default!;
+    [Inject] private FanfootDbContext Db { get; set; } = default!;
+    [Inject] private IPasswordHasher<LocalUser> Hasher { get; set; } = default!;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        _cts = new CancellationTokenSource();
+
+        try
+        {
+            var userId = await JS.InvokeAsync<string?>("fanfoot.getCookie", _cts.Token, "fanfoot_user");
+            if (!string.IsNullOrEmpty(userId))
+            {
+                var localUser = await Db.LocalUsers.FindAsync([userId], _cts.Token);
+                if (localUser != null)
+                {
+                    Navigation.NavigateTo($"/user/{userId}", replace: true);
+                    return;
+                }
+            }
+        }
+        catch { }
+
+        checkingSession = false;
+        StateHasChanged();
+    }
+
+    private async Task SignIn()
+    {
+        error = null;
+        var email = loginEmail.Trim().ToLower();
+        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(loginPassword)) return;
+
+        loading = true;
+        loadingMessage = "Signing in...";
+        StateHasChanged();
+
+        try
+        {
+            var localUser = await Db.LocalUsers.FirstOrDefaultAsync(u => u.Email == email);
+            if (localUser == null || string.IsNullOrEmpty(localUser.PasswordHash))
+            {
+                error = "Invalid email or password.";
+                return;
+            }
+
+            var result = Hasher.VerifyHashedPassword(localUser, localUser.PasswordHash, loginPassword);
+            if (result == PasswordVerificationResult.Failed)
+            {
+                error = "Invalid email or password.";
+                return;
+            }
+
+            await JS.InvokeVoidAsync("fanfoot.setCookie", "fanfoot_user", localUser.SleeperUserId, 604800);
+            Navigation.NavigateTo($"/user/{localUser.SleeperUserId}", replace: true);
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task Register()
+    {
+        error = null;
+
+        if (regPassword != regConfirm)
+        {
+            error = "Passwords do not match.";
+            return;
+        }
+        if (regPassword.Length < 8)
+        {
+            error = "Password must be at least 8 characters.";
+            return;
+        }
+
+        loading = true;
+        loadingMessage = "Looking up your Sleeper account...";
+        StateHasChanged();
+
+        try
+        {
+            var emailNorm = regEmail.Trim().ToLower();
+
+            var emailTaken = await Db.LocalUsers.AnyAsync(u => u.Email == emailNorm);
+            if (emailTaken)
+            {
+                error = "An account with this email already exists.";
+                return;
+            }
+
+            var sleeperUser = await Sleeper.GetUserAsync(regSleeperUsername.Trim());
+            if (sleeperUser == null || string.IsNullOrEmpty(sleeperUser.UserId))
+            {
+                error = "Sleeper username not found.";
+                return;
+            }
+
+            var userId = sleeperUser.UserId;
+
+            loadingMessage = "Checking your leagues...";
+            StateHasChanged();
+
+            var nflState = await Sleeper.GetNflStateAsync();
+            if (nflState == null) throw new Exception("Could not reach the Sleeper API.");
+
+            var authorized = false;
+            foreach (var season in new[] { nflState.Season, (int.Parse(nflState.Season) - 1).ToString() })
+            {
+                var leagues = await Sleeper.GetUserLeaguesAsync(userId, season);
+                if (leagues != null && leagues.Any(l => l.LeagueId == AuthorizedLeagueId))
+                {
+                    authorized = true;
+                    break;
+                }
+            }
+
+            if (!authorized)
+            {
+                error = "You are not a member of the authorized league.";
+                return;
+            }
+
+            var hash = Hasher.HashPassword(new LocalUser(), regPassword);
+            var existing = await Db.LocalUsers.FindAsync(userId);
+
+            if (existing == null)
+            {
+                loadingMessage = "Importing your leagues...";
+                StateHasChanged();
+                await ImportUserLeaguesAsync(userId, nflState.Season);
+
+                Db.LocalUsers.Add(new LocalUser
+                {
+                    SleeperUserId = userId,
+                    Email = emailNorm,
+                    PasswordHash = hash,
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
+            else
+            {
+                // Legacy user — link email/password to existing record
+                existing.Email = emailNorm;
+                existing.PasswordHash = hash;
+            }
+
+            await Db.SaveChangesAsync();
+            await JS.InvokeVoidAsync("fanfoot.setCookie", "fanfoot_user", userId, 604800);
+            Navigation.NavigateTo($"/user/{userId}", replace: true);
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ImportUserLeaguesAsync(string userId, string currentSeason)
+    {
+        var seen = new HashSet<string>();
+        foreach (var season in new[] { currentSeason, (int.Parse(currentSeason) - 1).ToString() })
+        {
+            var leagues = await Sleeper.GetUserLeaguesAsync(userId, season);
+            if (leagues == null) continue;
+            foreach (var league in leagues)
+            {
+                if (!seen.Add(league.LeagueId)) continue;
+                loadingMessage = $"Importing {league.Name}...";
+                StateHasChanged();
+                await LeagueService.ImportLeagueAsync(league.LeagueId);
+                await LeagueService.ImportUsersAsync(league.LeagueId);
+                await LeagueService.ImportRostersAsync(league.LeagueId);
+            }
+        }
+    }
+
+    public void Dispose()
+    {
+        _cts?.Cancel();
+        _cts?.Dispose();
+    }
+}

@@ -1,0 +1,143 @@
+﻿@page "/league/{LeagueId}/team/{TeamId}"
+@using System.Text.Json
+
+<PageTitle>@(team?.TeamName ?? "Team")</PageTitle>
+
+@if (team == null)
+{
+    <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+    return;
+}
+
+<MudLink Href="@($"/league/{LeagueId}")" Underline="Underline.None" Class="mb-3 d-block">&larr; Back to @league?.Name</MudLink>
+
+<MudText Typo="Typo.h4" Class="mb-1">@team.TeamName</MudText>
+<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+    Manager: @managerName &middot; @team.Wins-@team.Losses-@team.Ties &middot; PF: @team.PointsFor.ToString("F1") PA: @team.PointsAgainst.ToString("F1")
+</MudText>
+
+@if (rosterPlayers.Count == 0)
+{
+    <MudText Color="Color.Secondary">No players on roster.</MudText>
+}
+else
+{
+    <MudText Typo="Typo.h5" Class="mb-2">Starters</MudText>
+    @PlayerTable(starters)
+
+    <MudText Typo="Typo.h5" Class="mt-4 mb-2">Bench</MudText>
+    @PlayerTable(bench)
+
+    @if (reserve.Count > 0)
+    {
+        <MudText Typo="Typo.h5" Class="mt-4 mb-2">Reserve / IR</MudText>
+        @PlayerTable(reserve)
+    }
+
+    @if (taxi.Count > 0)
+    {
+        <MudText Typo="Typo.h5" Class="mt-4 mb-2">Taxi Squad</MudText>
+        @PlayerTable(taxi)
+    }
+}
+
+@code {
+    [Parameter]
+    public string LeagueId { get; set; } = string.Empty;
+
+    [Parameter]
+    public string TeamId { get; set; } = string.Empty;
+
+    private League? league;
+    private Team? team;
+    private string managerName = "";
+    private List<Player> rosterPlayers = [];
+    private List<Player> starters = [];
+    private List<Player> bench = [];
+    private List<Player> reserve = [];
+    private List<Player> taxi = [];
+
+    [Inject]
+    private LeagueService LeagueService { get; set; } = default!;
+
+    [Inject]
+    private FanfootDbContext Db { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        league = await LeagueService.GetLeagueAsync(LeagueId);
+        team = await Db.Teams.FindAsync(TeamId);
+
+        if (team == null) return;
+
+        var user = team.OwnerId != null
+            ? await Db.Users.FirstOrDefaultAsync(u => u.Id == team.OwnerId)
+            : null;
+        managerName = user?.DisplayName ?? "—";
+
+        var rosterIds = DeserializeIds(team.Roster);
+        var starterIds = DeserializeIds(team.Starters);
+        var reserveIds = DeserializeIds(team.Reserve);
+        var taxiIds = DeserializeIds(team.Taxi);
+
+        var allIds = rosterIds.Concat(reserveIds).Concat(taxiIds).Distinct().ToList();
+
+        if (allIds.Count > 0)
+        {
+            rosterPlayers = await Db.Players
+                .Where(p => allIds.Contains(p.Id))
+                .ToListAsync();
+        }
+
+        var playerMap = rosterPlayers.ToDictionary(p => p.Id);
+
+        starters = starterIds.Select(id => playerMap.GetValueOrDefault(id)).OfType<Player>().ToList();
+        bench = rosterIds.Except(starterIds).Select(id => playerMap.GetValueOrDefault(id)).OfType<Player>().ToList();
+        reserve = reserveIds.Select(id => playerMap.GetValueOrDefault(id)).OfType<Player>().ToList();
+        taxi = taxiIds.Select(id => playerMap.GetValueOrDefault(id)).OfType<Player>().ToList();
+    }
+
+    private RenderFragment PlayerTable(List<Player> players) =>
+        @<MudTable T="Player" Items="@players" Striped="true" Hover="true" Dense="true" Elevation="1" Class="mb-2">
+            <HeaderContent>
+                <MudTh>Player</MudTh>
+                <MudTh>Pos</MudTh>
+                <MudTh>NFL Team</MudTh>
+                <MudTh>Status</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Player">@context.FullName</MudTd>
+                <MudTd DataLabel="Pos">@context.Position</MudTd>
+                <MudTd DataLabel="NFL Team">@context.Team</MudTd>
+                <MudTd DataLabel="Status">
+                    @{
+                        var (chipColor, chipLabel) = GetStatusInfo(context.Status, context.InjuryStatus);
+                    }
+                    @if (chipLabel != null)
+                    {
+                        <MudChip T="string" Color="chipColor" Size="Size.Small">@chipLabel</MudChip>
+                    }
+                </MudTd>
+            </RowTemplate>
+        </MudTable>;
+
+    private static (Color Color, string? Label) GetStatusInfo(string? status, string? injuryStatus)
+    {
+        if (status == "Active" && string.IsNullOrEmpty(injuryStatus)) return (Color.Default, null);
+        var label = injuryStatus ?? status;
+        var color = (injuryStatus ?? status) switch
+        {
+            "Out" => Color.Error,
+            "Questionable" or "Doubtful" => Color.Warning,
+            _ => Color.Default
+        };
+        return (color, label);
+    }
+
+    private static List<string> DeserializeIds(string? json)
+    {
+        if (string.IsNullOrEmpty(json)) return [];
+        try { return JsonSerializer.Deserialize<List<string>>(json) ?? []; }
+        catch { return []; }
+    }
+}

@@ -1,4 +1,4 @@
-# Auto-Deploy to Unraid via GitHub Actions
+﻿# Auto-Deploy to Unraid via GitHub Actions
 
 ## Overview
 
@@ -9,19 +9,19 @@ On every push to `master`, a GitHub Actions workflow SSHes into the Unraid serve
 ### 1. Generate an SSH key pair (on your local machine)
 
 ```bash
-ssh-keygen -t ed25519 -C "github-actions-fantfoot" -f ~/.ssh/fantfoot_deploy
+ssh-keygen -t ed25519 -C "github-actions-fanfoot" -f ~/.ssh/fanfoot_deploy
 ```
 
 This creates two files:
-- `~/.ssh/fantfoot_deploy` — private key (goes into GitHub)
-- `~/.ssh/fantfoot_deploy.pub` — public key (goes onto the Unraid server)
+- `~/.ssh/fanfoot_deploy` — private key (goes into GitHub)
+- `~/.ssh/fanfoot_deploy.pub` — public key (goes onto the Unraid server)
 
 ### 2. Authorize the public key on the Unraid server
 
 SSH into Unraid and append the public key:
 
 ```bash
-cat ~/.ssh/fantfoot_deploy.pub | ssh <user>@<unraid-ip> "cat >> ~/.ssh/authorized_keys"
+cat ~/.ssh/fanfoot_deploy.pub | ssh <user>@<unraid-ip> "cat >> ~/.ssh/authorized_keys"
 ```
 
 ### 3. Clone the repo on the Unraid server
@@ -29,7 +29,7 @@ cat ~/.ssh/fantfoot_deploy.pub | ssh <user>@<unraid-ip> "cat >> ~/.ssh/authorize
 SSH into Unraid and clone the repo to your preferred path:
 
 ```bash
-git clone https://github.com/<your-username>/fantfoot.git /mnt/user/appdata/fantfoot
+git clone https://github.com/<your-username>/fanfoot.git /mnt/user/appdata/fanfoot
 ```
 
 ### 4. Create the .env file on the Unraid server
@@ -37,9 +37,9 @@ git clone https://github.com/<your-username>/fantfoot.git /mnt/user/appdata/fant
 The `.env` file is not in git, so it needs to be created manually on the server:
 
 ```bash
-cat > /mnt/user/appdata/fantfoot/.env <<EOF
-ConnectionStrings__DefaultConnection=Host=192.168.0.48;Port=5432;Database=fantfoot;Username=postgres;Password=password
-DB_CONNECTION_STRING=Host=192.168.0.48;Port=5432;Database=fantfoot;Username=postgres;Password=password
+cat > /mnt/user/appdata/fanfoot/.env <<EOF
+ConnectionStrings__DefaultConnection=Host=192.168.0.48;Port=5432;Database=fanfoot;Username=postgres;Password=password
+DB_CONNECTION_STRING=Host=192.168.0.48;Port=5432;Database=fanfoot;Username=postgres;Password=password
 EOF
 ```
 
@@ -51,7 +51,7 @@ In your GitHub repo go to **Settings → Secrets and variables → Actions** and
 |---|---|
 | `UNRAID_HOST` | Your Unraid server's IP address |
 | `UNRAID_USER` | The SSH username on Unraid |
-| `UNRAID_SSH_KEY` | Contents of `~/.ssh/fantfoot_deploy` (the private key) |
+| `UNRAID_SSH_KEY` | Contents of `~/.ssh/fanfoot_deploy` (the private key) |
 
 ### 6. Create the GitHub Actions workflow
 
@@ -75,12 +75,12 @@ jobs:
           username: ${{ secrets.UNRAID_USER }}
           key: ${{ secrets.UNRAID_SSH_KEY }}
           script: |
-            cd /mnt/user/appdata/fantfoot
+            cd /mnt/user/appdata/fanfoot
             git pull origin master
             docker compose up --build -d
 ```
 
-Update the `cd` path if you cloned the repo somewhere other than `/mnt/user/appdata/fantfoot`.
+Update the `cd` path if you cloned the repo somewhere other than `/mnt/user/appdata/fanfoot`.
 
 ### 7. Push and verify
 

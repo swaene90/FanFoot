@@ -1,0 +1,290 @@
+﻿@page "/league/{LeagueId}/draft"
+
+<PageTitle>Draft — @(league?.Name ?? "League")</PageTitle>
+
+@if (league == null || draftInfo == null)
+{
+    <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+    return;
+}
+
+@{
+    var badgeColor = draftInfo.Status == "complete" ? Color.Success : Color.Warning;
+    var badgeText = draftInfo.Status == "complete" ? "Complete" : "Pre-Draft";
+}
+
+<div style="display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:0.75rem; margin-bottom:1.5rem;">
+    <div>
+        <MudText Typo="Typo.h4">@league.Name — Draft</MudText>
+        <div style="display:flex; align-items:center; gap:0.5rem; margin-top:0.25rem;">
+            <MudChip T="string" Color="badgeColor" Size="Size.Small">@badgeText</MudChip>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">@draftInfo.Type draft &middot; @totalPicks total picks</MudText>
+        </div>
+    </div>
+    <MudSelect T="string" @bind-Value="selectedTeamId"
+               Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined"
+               Style="min-width:200px;" Label="Filter by team">
+        <MudSelectItem T="string" Value='@("")'>All Teams</MudSelectItem>
+        @foreach (var (rosterId, teamName) in teamOptions)
+        {
+            <MudSelectItem T="string" Value="@rosterId">@teamName</MudSelectItem>
+        }
+    </MudSelect>
+</div>
+
+@if (draftInfo.Status == "pre_draft")
+{
+    <MudText Typo="Typo.h5" Class="mb-1">Draft Order</MudText>
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">The draft hasn't happened yet. Here's the planned order.</MudText>
+
+    @if (draftOrder != null && draftOrder.Count != 0)
+    {
+        <MudTable T="(int Round, int Pick, string TeamName, string ManagerName, string OrigTeam)"
+                  Items="@draftOrder" Striped="true" Hover="true" Dense="true" Elevation="1">
+            <HeaderContent>
+                <MudTh>Round</MudTh>
+                <MudTh>Pick</MudTh>
+                <MudTh>Team</MudTh>
+                <MudTh>Manager</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Round">@context.Round</MudTd>
+                <MudTd DataLabel="Pick">@context.Pick</MudTd>
+                <MudTd DataLabel="Team">
+                    @context.TeamName
+                    @if (!string.IsNullOrEmpty(context.OrigTeam))
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">(from @context.OrigTeam)</MudText>
+                    }
+                </MudTd>
+                <MudTd DataLabel="Manager">@context.ManagerName</MudTd>
+            </RowTemplate>
+            <NoRecordsContent>
+                <MudText Color="Color.Secondary">Draft order not available.</MudText>
+            </NoRecordsContent>
+        </MudTable>
+    }
+    else
+    {
+        <MudText Color="Color.Secondary">Draft order not available.</MudText>
+    }
+}
+else
+{
+    var filteredPicks = string.IsNullOrEmpty(selectedTeamId)
+        ? picks
+        : picks.Where(p => p.TeamId == selectedTeamId).ToList();
+
+    <MudText Typo="Typo.h5" Class="mb-3">Picks (@filteredPicks.Count)</MudText>
+    <MudTable T="DraftPick" Items="@filteredPicks.OrderBy(p => p.PickNumber).ToList()"
+              Striped="true" Hover="true" Dense="true" Elevation="1">
+        <HeaderContent>
+            <MudTh>Round</MudTh>
+            <MudTh>Pick</MudTh>
+            <MudTh>Team</MudTh>
+            <MudTh>Manager</MudTh>
+            <MudTh>Player</MudTh>
+            <MudTh>Position</MudTh>
+            <MudTh>NFL Team</MudTh>
+            <MudTh>Keeper</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            @{
+                var teamName = context.TeamId != null && teamMap.TryGetValue(context.TeamId, out var tn) ? tn : "—";
+                var origTeam = "";
+                if (slotOwnerMap.Count > 0 && context.TeamId != null && int.TryParse(context.TeamId, out var actualRosterId))
+                {
+                    var numTeams = slotOwnerMap.Count;
+                    var pickInRound = (context.PickNumber - 1) % numTeams + 1;
+                    var expectedSlot = isSnake && context.Round % 2 == 0
+                        ? numTeams - pickInRound + 1
+                        : pickInRound;
+                    var origRosterId = slotOwnerMap.GetValueOrDefault(expectedSlot);
+                    if (origRosterId != 0 && actualRosterId != origRosterId && teamMap.TryGetValue(origRosterId.ToString(), out var ot))
+                        origTeam = ot;
+                }
+            }
+            <MudTd DataLabel="Round">@context.Round</MudTd>
+            <MudTd DataLabel="Pick">@context.PickNumber</MudTd>
+            <MudTd DataLabel="Team">
+                @teamName
+                @if (!string.IsNullOrEmpty(origTeam))
+                {
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">(from @origTeam)</MudText>
+                }
+            </MudTd>
+            <MudTd DataLabel="Manager">@(context.TeamId != null && managerMap.TryGetValue(context.TeamId, out var mgr) ? mgr : "—")</MudTd>
+            <MudTd DataLabel="Player">@context.PlayerName</MudTd>
+            <MudTd DataLabel="Position">@context.Position</MudTd>
+            <MudTd DataLabel="NFL Team">@context.Team</MudTd>
+            <MudTd DataLabel="Keeper">@(context.IsKeeper == true ? "Yes" : "")</MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText Color="Color.Secondary">No picks found.</MudText>
+        </NoRecordsContent>
+    </MudTable>
+}
+
+@code {
+    [Parameter]
+    public string LeagueId { get; set; } = string.Empty;
+
+    private League? league;
+    private SleeperDraftDto? draftInfo;
+    private List<DraftPick> picks = [];
+    private List<Team> teams = [];
+    private string selectedTeamId = "";
+    private int totalPicks;
+
+    private Dictionary<string, string> teamMap = [];
+    private Dictionary<string, string> ownerTeamMap = [];
+    private Dictionary<string, string> managerMap = [];
+    private Dictionary<string, string> userManagerMap = [];
+    private List<(string RosterId, string TeamName)> teamOptions = [];
+    private List<(int Round, int Pick, string TeamName, string ManagerName, string OrigTeam)>? draftOrder;
+    private Dictionary<int, int> slotOwnerMap = [];
+    private Dictionary<string, int> userIdToRosterMap = [];
+    private bool isSnake;
+    private Dictionary<(int RosterId, int Round), int> tradedPickMap = [];
+
+    [Inject]
+    private LeagueService LeagueService { get; set; } = default!;
+
+    [Inject]
+    private FanfootDbContext Db { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        league = await LeagueService.GetLeagueAsync(LeagueId);
+        if (league == null) return;
+
+        draftInfo = await LeagueService.GetDraftInfoAsync(LeagueId);
+        if (draftInfo == null) return;
+
+        isSnake = string.Equals(draftInfo.Type, "snake", StringComparison.OrdinalIgnoreCase);
+
+        teams = await Db.Teams.Where(t => t.LeagueId == LeagueId).ToListAsync();
+        var users = await Db.Users.Where(u => u.LeagueId == LeagueId).ToListAsync();
+        var userDisplayMap = users.ToDictionary(u => u.Id, u => u.DisplayName ?? u.Id);
+        teamMap = teams.ToDictionary(
+            t => t.Id.Split('_').Last(),
+            t => t.TeamName);
+        ownerTeamMap = teams
+            .Where(t => t.OwnerId != null)
+            .ToDictionary(t => t.OwnerId!, t => t.TeamName);
+
+        managerMap = [];
+        userManagerMap = [];
+        userIdToRosterMap = [];
+        foreach (var team in teams)
+        {
+            var rosterId = team.Id.Split('_').Last();
+            if (team.OwnerId != null && userDisplayMap.TryGetValue(team.OwnerId, out var displayName))
+            {
+                managerMap[rosterId] = displayName;
+                userManagerMap[team.OwnerId] = displayName;
+                userIdToRosterMap[team.OwnerId] = int.Parse(rosterId);
+            }
+        }
+
+        teamOptions = teams
+            .Select(t => (RosterId: t.Id.Split('_').Last(), t.TeamName))
+            .OrderBy(x => x.TeamName)
+            .ToList();
+
+        if (draftInfo.SlotToRosterId != null)
+        {
+            slotOwnerMap = draftInfo.SlotToRosterId
+                .ToDictionary(kvp => int.Parse(kvp.Key), kvp => kvp.Value);
+        }
+
+        var traded = await LeagueService.GetTradedPicksAsync(LeagueId);
+        var leagueSeason = league.Season.ToString();
+        foreach (var tp in traded)
+        {
+            if (tp.Season == leagueSeason)
+                tradedPickMap[(tp.RosterId, tp.Round)] = tp.OwnerId;
+        }
+
+        if (draftInfo.Status == "complete")
+        {
+            picks = await LeagueService.ImportDraftPicksAsync(LeagueId);
+            totalPicks = picks.Count;
+        }
+        else
+        {
+            totalPicks = (draftInfo.Settings?.Rounds ?? 0) * (draftInfo.Settings?.Teams ?? 0);
+            BuildDraftOrder();
+        }
+    }
+
+    private void BuildDraftOrder()
+    {
+        if (draftInfo?.SlotToRosterId != null)
+        {
+            var slots = draftInfo.SlotToRosterId
+                .OrderBy(kvp => int.Parse(kvp.Key))
+                .ToList();
+
+            var numTeams = slots.Count;
+            var rounds = draftInfo.Settings?.Rounds ?? 4;
+            draftOrder = [];
+            var pick = 1;
+
+            for (var round = 1; round <= rounds; round++)
+            {
+                var roundSlots = isSnake && round % 2 == 0
+                    ? slots.AsEnumerable().Reverse().ToList()
+                    : slots;
+
+                foreach (var (slot, rosterId) in roundSlots)
+                {
+                    var actualRosterId = tradedPickMap.TryGetValue((rosterId, round), out var tradedOwner) ? tradedOwner : rosterId;
+                    var rosterIdStr = actualRosterId.ToString();
+                    var teamName = teamMap.GetValueOrDefault(rosterIdStr, $"Team {actualRosterId}");
+                    var managerName = managerMap.GetValueOrDefault(rosterIdStr, "—");
+                    var origTeam = actualRosterId != rosterId
+                        ? teamMap.GetValueOrDefault(rosterId.ToString(), $"Team {rosterId}")
+                        : "";
+                    draftOrder.Add((round, pick++, teamName, managerName, origTeam));
+                }
+            }
+        }
+        else if (draftInfo?.DraftOrder != null)
+        {
+            var order = draftInfo.DraftOrder
+                .OrderBy(kvp => kvp.Value)
+                .ToList();
+
+            var numTeams = order.Count;
+            var rounds = draftInfo.Settings?.Rounds ?? 4;
+            draftOrder = [];
+            var pick = 1;
+
+            for (var round = 1; round <= rounds; round++)
+            {
+                var roundOrder = isSnake && round % 2 == 0
+                    ? order.AsEnumerable().Reverse().ToList()
+                    : order;
+
+                foreach (var (userId, _) in roundOrder)
+                {
+                    var origRosterId = userIdToRosterMap.GetValueOrDefault(userId, -1);
+                    var actualRosterId = origRosterId;
+                    if (origRosterId > 0 && tradedPickMap.TryGetValue((origRosterId, round), out var tradedOwner))
+                        actualRosterId = tradedOwner;
+                    var teamName = actualRosterId > 0
+                        ? teamMap.GetValueOrDefault(actualRosterId.ToString(), $"Team {actualRosterId}")
+                        : ownerTeamMap.GetValueOrDefault(userId, $"User {userId}");
+                    var managerName = actualRosterId > 0
+                        ? managerMap.GetValueOrDefault(actualRosterId.ToString(), "—")
+                        : userManagerMap.GetValueOrDefault(userId, "—");
+                    var origTeam = actualRosterId != origRosterId && origRosterId > 0
+                        ? teamMap.GetValueOrDefault(origRosterId.ToString(), $"Team {origRosterId}")
+                        : "";
+                    draftOrder.Add((round, pick++, teamName, managerName, origTeam));
+                }
+            }
+        }
+    }
+}

@@ -1,4 +1,4 @@
-# Fantfoot
+﻿# Fanfoot
 
 A Blazor Interactive Server app for tracking Sleeper fantasy football leagues, with an AI assistant powered by a local Ollama model.
 
@@ -49,7 +49,7 @@ cp .env.example .env
 ### Run
 
 ```bash
-cd src/Fantfoot.Web
+cd src/Fanfoot.Web
 dotnet run
 ```
 
@@ -68,11 +68,11 @@ See [DEPLOY.md](DEPLOY.md) for setting up auto-deploy to an Unraid server via Gi
 ## Project Structure
 
 ```
-Fantfoot.slnx
+Fanfoot.slnx
 src/
-├── Fantfoot.Domain/          # Entity models
-├── Fantfoot.Infrastructure/  # EF Core DbContext, Sleeper/FantasyCalc clients, mappings
-└── Fantfoot.Web/
+├── Fanfoot.Domain/          # Entity models
+├── Fanfoot.Infrastructure/  # EF Core DbContext, Sleeper/FantasyCalc clients, mappings
+└── Fanfoot.Web/
     ├── Components/Pages/     # Blazor pages (Home, Chat, LeagueDetail, TeamDetail)
     ├── Services/             # ChatService, PlayerImportService
     └── wwwroot/              # Static assets
