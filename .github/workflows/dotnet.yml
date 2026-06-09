@@ -26,17 +26,12 @@ jobs:
       run: dotnet test --no-build --verbosity normal
 
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: build
     if: github.ref == 'refs/heads/master' && github.event_name == 'push'
     steps:
     - name: Deploy to Unraid
-      uses: appleboy/ssh-action@v1
-      with:
-        host: ${{ secrets.UNRAID_HOST }}
-        username: ${{ secrets.UNRAID_USER }}
-        key: ${{ secrets.UNRAID_SSH_KEY }}
-        script: |
-          cd /mnt/user/appdata/fanfoot
-          git pull origin master
-          docker compose up --build -d
+      run: |
+        cd /mnt/user/appdata/fanfoot
+        git pull origin master
+        docker compose up --build -d
