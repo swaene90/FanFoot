@@ -34,4 +34,4 @@ jobs:
     - name: Stop old container
       run: docker stop fantfoot-web-1 || true
     - name: Deploy to Unraid
-      run: docker compose up --build -d
+      run: docker compose --env-file /mnt/user/appdata/fantfoot/.env up --build -d
