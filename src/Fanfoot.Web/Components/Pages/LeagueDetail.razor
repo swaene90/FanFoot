@@ -82,16 +82,13 @@
     [Inject]
     private LeagueService LeagueService { get; set; } = default!;
 
-    [Inject]
-    private FanfootDbContext Db { get; set; } = default!;
-
     protected override async Task OnInitializedAsync()
     {
         league = await LeagueService.GetLeagueAsync(LeagueId);
         if (league != null)
         {
-            teams = await Db.Teams.Where(t => t.LeagueId == LeagueId).ToListAsync();
-            users = await Db.Users.Where(u => u.LeagueId == LeagueId).ToListAsync();
+            teams = await LeagueService.GetLeagueTeamsAsync(LeagueId);
+            users = await LeagueService.GetLeagueUsersAsync(LeagueId);
             if (league.PreviousLeagueId != null)
             {
                 previousLeague = await LeagueService.GetLeagueAsync(league.PreviousLeagueId);

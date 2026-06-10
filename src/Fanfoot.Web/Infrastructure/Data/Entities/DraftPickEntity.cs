@@ -1,6 +1,6 @@
-﻿namespace Fanfoot.Domain;
+namespace Fanfoot.Infrastructure.Data.Entities;
 
-public class DraftPick
+public class DraftPickEntity
 {
     public string Id { get; set; } = string.Empty;
     public string DraftId { get; set; } = string.Empty;

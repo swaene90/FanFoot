@@ -1,5 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Fanfoot.Domain;
+using Microsoft.EntityFrameworkCore;
+using Fanfoot.Infrastructure.Data.Entities;
 
 namespace Fanfoot.Infrastructure.Data;
 
@@ -7,22 +7,23 @@ public class FanfootDbContext : DbContext
 {
     public FanfootDbContext(DbContextOptions<FanfootDbContext> options) : base(options) { }
 
-    public DbSet<Player> Players => Set<Player>();
-    public DbSet<League> Leagues => Set<League>();
-    public DbSet<Team> Teams => Set<Team>();
-    public DbSet<User> Users => Set<User>();
-    public DbSet<PlayerStats> PlayerStats => Set<PlayerStats>();
-    public DbSet<Matchup> Matchups => Set<Matchup>();
-    public DbSet<DraftPick> DraftPicks => Set<DraftPick>();
-    public DbSet<LeagueSettings> LeagueSettings => Set<LeagueSettings>();
-    public DbSet<LocalUser> LocalUsers => Set<LocalUser>();
-    public DbSet<ChatSession> ChatSessions => Set<ChatSession>();
-    public DbSet<UserPreferences> UserPreferences => Set<UserPreferences>();
+    public DbSet<PlayerEntity> Players => Set<PlayerEntity>();
+    public DbSet<LeagueEntity> Leagues => Set<LeagueEntity>();
+    public DbSet<TeamEntity> Teams => Set<TeamEntity>();
+    public DbSet<UserEntity> Users => Set<UserEntity>();
+    public DbSet<PlayerStatsEntity> PlayerStats => Set<PlayerStatsEntity>();
+    public DbSet<MatchupEntity> Matchups => Set<MatchupEntity>();
+    public DbSet<DraftPickEntity> DraftPicks => Set<DraftPickEntity>();
+    public DbSet<LeagueSettingsEntity> LeagueSettings => Set<LeagueSettingsEntity>();
+    public DbSet<LocalUserEntity> LocalUsers => Set<LocalUserEntity>();
+    public DbSet<ChatSessionEntity> ChatSessions => Set<ChatSessionEntity>();
+    public DbSet<UserPreferencesEntity> UserPreferences => Set<UserPreferencesEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.Entity<Player>(e =>
+        modelBuilder.Entity<PlayerEntity>(e =>
         {
+            e.ToTable("Players");
             e.HasKey(p => p.Id);
             e.Property(p => p.Id).HasMaxLength(50);
             e.Property(p => p.FirstName).HasMaxLength(50);
@@ -35,8 +36,9 @@ public class FanfootDbContext : DbContext
             e.Property(p => p.Metadata);
         });
 
-        modelBuilder.Entity<League>(e =>
+        modelBuilder.Entity<LeagueEntity>(e =>
         {
+            e.ToTable("Leagues");
             e.HasKey(l => l.Id);
             e.Property(l => l.Id).HasMaxLength(50);
             e.Property(l => l.Name).HasMaxLength(200);
@@ -45,8 +47,9 @@ public class FanfootDbContext : DbContext
             e.Property(l => l.Metadata);
         });
 
-        modelBuilder.Entity<Team>(e =>
+        modelBuilder.Entity<TeamEntity>(e =>
         {
+            e.ToTable("Teams");
             e.HasKey(t => t.Id);
             e.Property(t => t.Id).HasMaxLength(50);
             e.Property(t => t.LeagueId).HasMaxLength(50);
@@ -55,8 +58,9 @@ public class FanfootDbContext : DbContext
             e.HasIndex(t => t.LeagueId);
         });
 
-        modelBuilder.Entity<User>(e =>
+        modelBuilder.Entity<UserEntity>(e =>
         {
+            e.ToTable("Users");
             e.HasKey(u => u.Id);
             e.Property(u => u.Id).HasMaxLength(50);
             e.Property(u => u.DisplayName).HasMaxLength(100);
@@ -64,8 +68,9 @@ public class FanfootDbContext : DbContext
             e.Property(u => u.Metadata);
         });
 
-        modelBuilder.Entity<PlayerStats>(e =>
+        modelBuilder.Entity<PlayerStatsEntity>(e =>
         {
+            e.ToTable("PlayerStats");
             e.HasKey(ps => ps.Id);
             e.Property(ps => ps.Id).HasMaxLength(100);
             e.Property(ps => ps.PlayerId).HasMaxLength(50);
@@ -73,8 +78,9 @@ public class FanfootDbContext : DbContext
             e.HasIndex(ps => new { ps.PlayerId, ps.Season, ps.Week });
         });
 
-        modelBuilder.Entity<Matchup>(e =>
+        modelBuilder.Entity<MatchupEntity>(e =>
         {
+            e.ToTable("Matchups");
             e.HasKey(m => m.Id);
             e.Property(m => m.Id).HasMaxLength(100);
             e.Property(m => m.LeagueId).HasMaxLength(50);
@@ -82,8 +88,9 @@ public class FanfootDbContext : DbContext
             e.HasIndex(m => new { m.LeagueId, m.Week, m.Season });
         });
 
-        modelBuilder.Entity<DraftPick>(e =>
+        modelBuilder.Entity<DraftPickEntity>(e =>
         {
+            e.ToTable("DraftPicks");
             e.HasKey(dp => dp.Id);
             e.Property(dp => dp.Id).HasMaxLength(100);
             e.Property(dp => dp.DraftId).HasMaxLength(50);
@@ -93,15 +100,17 @@ public class FanfootDbContext : DbContext
             e.HasIndex(dp => dp.DraftId);
         });
 
-        modelBuilder.Entity<LeagueSettings>(e =>
+        modelBuilder.Entity<LeagueSettingsEntity>(e =>
         {
+            e.ToTable("LeagueSettings");
             e.HasKey(ls => ls.Id);
             e.Property(ls => ls.Id).HasMaxLength(50);
             e.Property(ls => ls.LeagueId).HasMaxLength(50);
         });
 
-        modelBuilder.Entity<LocalUser>(e =>
+        modelBuilder.Entity<LocalUserEntity>(e =>
         {
+            e.ToTable("LocalUsers");
             e.HasKey(u => u.SleeperUserId);
             e.Property(u => u.SleeperUserId).HasMaxLength(50);
             e.Property(u => u.Email).HasMaxLength(256);
@@ -109,8 +118,9 @@ public class FanfootDbContext : DbContext
             e.HasIndex(u => u.Email).IsUnique();
         });
 
-        modelBuilder.Entity<ChatSession>(e =>
+        modelBuilder.Entity<ChatSessionEntity>(e =>
         {
+            e.ToTable("ChatSessions");
             e.HasKey(cs => cs.Id);
             e.Property(cs => cs.Id).HasMaxLength(50);
             e.Property(cs => cs.UserId).HasMaxLength(50);
@@ -119,8 +129,9 @@ public class FanfootDbContext : DbContext
             e.HasIndex(cs => new { cs.UserId, cs.UpdatedAt });
         });
 
-        modelBuilder.Entity<UserPreferences>(e =>
+        modelBuilder.Entity<UserPreferencesEntity>(e =>
         {
+            e.ToTable("UserPreferences");
             e.HasKey(up => up.UserId);
             e.Property(up => up.UserId).HasMaxLength(50);
         });

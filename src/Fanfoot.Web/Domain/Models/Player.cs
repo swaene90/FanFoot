@@ -1,4 +1,4 @@
-﻿namespace Fanfoot.Domain;
+namespace Fanfoot.Domain.Models;
 
 public class Player
 {

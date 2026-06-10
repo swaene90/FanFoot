@@ -1,8 +1,4 @@
 ﻿@page "/chat"
-@using Fanfoot.Web.Services
-@using Fanfoot.Infrastructure.Data
-@using Fanfoot.Domain
-@using Microsoft.EntityFrameworkCore
 
 <PageTitle>AI Chat</PageTitle>
 
@@ -92,7 +88,7 @@
 
 @code {
     [Inject] private ChatService ChatService { get; set; } = default!;
-    [Inject] private FanfootDbContext Db { get; set; } = default!;
+    [Inject] private UserService UserService { get; set; } = default!;
     [Inject] private IJSRuntime JS { get; set; } = default!;
 
     private bool loading;
@@ -120,16 +116,7 @@
         userId = await JS.InvokeAsync<string?>("fanfoot.getCookie", "fanfoot_user");
         if (!string.IsNullOrEmpty(userId))
         {
-            var teams = await Db.Teams.Where(t => t.OwnerId == userId).ToListAsync();
-            var leagueIds = teams.Select(t => t.LeagueId).Distinct().ToList();
-            var allLeagues = await Db.Leagues
-                .Where(l => leagueIds.Contains(l.Id))
-                .ToListAsync();
-            var currentSeason = allLeagues.Max(l => l.Season);
-            leagues = allLeagues
-                .Where(l => l.Season == currentSeason)
-                .OrderBy(l => l.Name)
-                .ToList();
+            leagues = await UserService.GetUserCurrentLeaguesAsync(userId);
 
             if (leagues.Count > 0)
             {

@@ -1,6 +1,6 @@
-﻿namespace Fanfoot.Domain;
+namespace Fanfoot.Infrastructure.Data.Entities;
 
-public class Matchup
+public class MatchupEntity
 {
     public string Id { get; set; } = string.Empty;
     public string LeagueId { get; set; } = string.Empty;

@@ -1,10 +1,11 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Fanfoot.Domain;
+using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
+using Fanfoot.Domain.Models;
 using Fanfoot.Infrastructure.Data;
 using Fanfoot.Infrastructure.Clients;
 using Fanfoot.Infrastructure.Mapping;
 
-namespace Fanfoot.Infrastructure.Services;
+namespace Fanfoot.Domain.Services;
 
 public class LeagueService
 {
@@ -19,12 +20,61 @@ public class LeagueService
 
     public async Task<List<League>> GetLeaguesAsync()
     {
-        return await _db.Leagues.OrderByDescending(l => l.Season).ThenBy(l => l.Name).ToListAsync();
+        var leagues = await _db.Leagues.OrderByDescending(l => l.Season).ThenBy(l => l.Name).ToListAsync();
+        return leagues.Select(EntityMapper.ToDomain).ToList();
     }
 
     public async Task<League?> GetLeagueAsync(string leagueId)
     {
-        return await _db.Leagues.FindAsync(leagueId);
+        var league = await _db.Leagues.FindAsync(leagueId);
+        return league == null ? null : EntityMapper.ToDomain(league);
+    }
+
+    public async Task<List<Team>> GetLeagueTeamsAsync(string leagueId)
+    {
+        var teams = await _db.Teams.Where(t => t.LeagueId == leagueId).ToListAsync();
+        return teams.Select(EntityMapper.ToDomain).ToList();
+    }
+
+    public async Task<List<User>> GetLeagueUsersAsync(string leagueId)
+    {
+        var users = await _db.Users.Where(u => u.LeagueId == leagueId).ToListAsync();
+        return users.Select(EntityMapper.ToDomain).ToList();
+    }
+
+    public async Task<TeamRoster?> GetTeamRosterAsync(string teamId)
+    {
+        var team = await _db.Teams.FindAsync(teamId);
+        if (team == null) return null;
+
+        var user = team.OwnerId != null
+            ? await _db.Users.FirstOrDefaultAsync(u => u.Id == team.OwnerId)
+            : null;
+
+        var rosterIds = DeserializeIds(team.Roster);
+        var starterIds = DeserializeIds(team.Starters);
+        var reserveIds = DeserializeIds(team.Reserve);
+        var taxiIds = DeserializeIds(team.Taxi);
+
+        var allIds = rosterIds.Concat(reserveIds).Concat(taxiIds).Distinct().ToList();
+
+        var players = allIds.Count > 0
+            ? await _db.Players.Where(p => allIds.Contains(p.Id)).ToListAsync()
+            : [];
+        var playerMap = players.ToDictionary(p => p.Id, p => EntityMapper.ToDomain(p));
+
+        List<Player> Resolve(IEnumerable<string> ids) =>
+            ids.Select(id => playerMap.GetValueOrDefault(id)).OfType<Player>().ToList();
+
+        return new TeamRoster
+        {
+            Team = EntityMapper.ToDomain(team),
+            ManagerName = user?.DisplayName ?? "—",
+            Starters = Resolve(starterIds),
+            Bench = Resolve(rosterIds.Except(starterIds)),
+            Reserve = Resolve(reserveIds),
+            Taxi = Resolve(taxiIds)
+        };
     }
 
     public async Task<League> ImportLeagueAsync(string leagueId, CancellationToken ct = default)
@@ -45,15 +95,14 @@ public class LeagueService
             existing.TotalRosters = league.TotalRosters;
             existing.Metadata = league.Metadata;
             existing.UpdatedAt = DateTime.UtcNow;
-        }
-        else
-        {
-            league.CreatedAt = DateTime.UtcNow;
-            _db.Leagues.Add(league);
+            await _db.SaveChangesAsync(ct);
+            return EntityMapper.ToDomain(existing);
         }
 
+        league.CreatedAt = DateTime.UtcNow;
+        _db.Leagues.Add(league);
         await _db.SaveChangesAsync(ct);
-        return league;
+        return EntityMapper.ToDomain(league);
     }
 
     public async Task<List<Team>> ImportRostersAsync(string leagueId, CancellationToken ct = default)
@@ -89,7 +138,7 @@ public class LeagueService
         }
 
         await _db.SaveChangesAsync(ct);
-        return teams;
+        return teams.Select(EntityMapper.ToDomain).ToList();
     }
 
     public async Task<int> ImportPlayersAsync(CancellationToken ct = default)
@@ -132,9 +181,9 @@ public class LeagueService
     public async Task<List<User>> ImportUsersAsync(string leagueId, CancellationToken ct = default)
     {
         var users = await _sleeper.GetLeagueUsersAsync(leagueId, ct) ?? [];
-        var domainUsers = users.Select(u => SleeperMapper.ToUser(u, leagueId)).ToList();
+        var entities = users.Select(u => SleeperMapper.ToUser(u, leagueId)).ToList();
 
-        foreach (var user in domainUsers)
+        foreach (var user in entities)
         {
             var existing = await _db.Users.FindAsync(new object[] { user.Id }, ct);
             if (existing != null)
@@ -151,7 +200,7 @@ public class LeagueService
         }
 
         await _db.SaveChangesAsync(ct);
-        return domainUsers;
+        return entities.Select(EntityMapper.ToDomain).ToList();
     }
 
     public async Task<List<DraftPick>> ImportDraftPicksAsync(string leagueId, CancellationToken ct = default)
@@ -161,9 +210,9 @@ public class LeagueService
         if (draft == null) return [];
 
         var picks = await _sleeper.GetDraftPicksAsync(draft.DraftId, ct) ?? [];
-        var domainPicks = picks.Select(p => SleeperMapper.ToDraftPick(p, leagueId)).ToList();
+        var entities = picks.Select(p => SleeperMapper.ToDraftPick(p, leagueId)).ToList();
 
-        foreach (var pick in domainPicks)
+        foreach (var pick in entities)
         {
             var existing = await _db.DraftPicks.FindAsync([pick.Id], ct);
             if (existing != null)
@@ -180,17 +229,26 @@ public class LeagueService
         }
 
         await _db.SaveChangesAsync(ct);
-        return domainPicks;
+        return entities.Select(EntityMapper.ToDomain).ToList();
     }
 
-    public async Task<SleeperDraftDto?> GetDraftInfoAsync(string leagueId, CancellationToken ct = default)
+    public async Task<DraftInfo?> GetDraftInfoAsync(string leagueId, CancellationToken ct = default)
     {
         var drafts = await _sleeper.GetLeagueDraftsAsync(leagueId, ct) ?? [];
-        return drafts.FirstOrDefault();
+        var draft = drafts.FirstOrDefault();
+        return draft == null ? null : SleeperMapper.ToDraftInfo(draft);
     }
 
-    public async Task<List<SleeperTradedPickDto>> GetTradedPicksAsync(string leagueId, CancellationToken ct = default)
+    public async Task<List<TradedPick>> GetTradedPicksAsync(string leagueId, CancellationToken ct = default)
     {
-        return await _sleeper.GetTradedPicksAsync(leagueId, ct) ?? [];
+        var picks = await _sleeper.GetTradedPicksAsync(leagueId, ct) ?? [];
+        return picks.Select(SleeperMapper.ToTradedPick).ToList();
+    }
+
+    private static List<string> DeserializeIds(string? json)
+    {
+        if (string.IsNullOrEmpty(json)) return [];
+        try { return JsonSerializer.Deserialize<List<string>>(json) ?? []; }
+        catch { return []; }
     }
 }

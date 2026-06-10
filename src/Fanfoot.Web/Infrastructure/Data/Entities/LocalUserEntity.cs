@@ -1,6 +1,6 @@
-﻿namespace Fanfoot.Domain;
+namespace Fanfoot.Infrastructure.Data.Entities;
 
-public class LocalUser
+public class LocalUserEntity
 {
     public string SleeperUserId { get; set; } = string.Empty;
     public string? Email { get; set; }

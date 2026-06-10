@@ -1,14 +1,15 @@
-﻿using System.Text.Json;
-using Fanfoot.Domain;
+using System.Text.Json;
+using Fanfoot.Domain.Models;
 using Fanfoot.Infrastructure.Clients;
+using Fanfoot.Infrastructure.Data.Entities;
 
 namespace Fanfoot.Infrastructure.Mapping;
 
 public static class SleeperMapper
 {
-    public static Player ToPlayer(SleeperPlayerDto dto)
+    public static PlayerEntity ToPlayer(SleeperPlayerDto dto)
     {
-        return new Player
+        return new PlayerEntity
         {
             Id = dto.PlayerId,
             FirstName = dto.FirstName,
@@ -47,9 +48,9 @@ public static class SleeperMapper
         };
     }
 
-    public static League ToLeague(SleeperLeagueDto dto)
+    public static LeagueEntity ToLeague(SleeperLeagueDto dto)
     {
-        return new League
+        return new LeagueEntity
         {
             Id = dto.LeagueId,
             Name = dto.Name,
@@ -72,7 +73,7 @@ public static class SleeperMapper
         };
     }
 
-    public static Team ToTeam(SleeperRosterDto dto, string leagueId, Dictionary<string, string>? userTeamNames = null)
+    public static TeamEntity ToTeam(SleeperRosterDto dto, string leagueId, Dictionary<string, string>? userTeamNames = null)
     {
         var settings = dto.Settings;
         var pointsFor = settings != null
@@ -86,7 +87,7 @@ public static class SleeperMapper
         teamName ??= dto.OwnerId != null && userTeamNames?.TryGetValue(dto.OwnerId, out var userTeam) == true ? userTeam : null;
         teamName ??= $"Team {dto.RosterId}";
 
-        return new Team
+        return new TeamEntity
         {
             Id = $"{leagueId}_{dto.RosterId}",
             LeagueId = leagueId,
@@ -106,9 +107,9 @@ public static class SleeperMapper
         };
     }
 
-    public static User ToUser(SleeperUserDto dto, string leagueId)
+    public static UserEntity ToUser(SleeperUserDto dto, string leagueId)
     {
-        return new User
+        return new UserEntity
         {
             Id = dto.UserId,
             LeagueId = leagueId,
@@ -120,9 +121,9 @@ public static class SleeperMapper
         };
     }
 
-    public static Matchup ToMatchup(SleeperMatchupDto dto, string leagueId, int week, int season)
+    public static MatchupEntity ToMatchup(SleeperMatchupDto dto, string leagueId, int week, int season)
     {
-        return new Matchup
+        return new MatchupEntity
         {
             Id = $"{leagueId}_{week}_{dto.RosterId}",
             LeagueId = leagueId,
@@ -139,10 +140,10 @@ public static class SleeperMapper
         };
     }
 
-    public static DraftPick ToDraftPick(SleeperDraftPickDto dto, string leagueId)
+    public static DraftPickEntity ToDraftPick(SleeperDraftPickDto dto, string leagueId)
     {
         var meta = dto.Metadata;
-        return new DraftPick
+        return new DraftPickEntity
         {
             Id = $"{dto.DraftId}_{dto.PickNo}",
             DraftId = dto.DraftId,
@@ -157,6 +158,33 @@ public static class SleeperMapper
             Team = meta?.Team,
             IsKeeper = dto.IsKeeper,
             CreatedAt = DateTime.UtcNow
+        };
+    }
+
+    public static DraftInfo ToDraftInfo(SleeperDraftDto dto)
+    {
+        return new DraftInfo
+        {
+            DraftId = dto.DraftId,
+            Type = dto.Type,
+            Status = dto.Status,
+            Season = dto.Season,
+            DraftOrder = dto.DraftOrder,
+            SlotToRosterId = dto.SlotToRosterId,
+            Rounds = dto.Settings?.Rounds,
+            Teams = dto.Settings?.Teams
+        };
+    }
+
+    public static TradedPick ToTradedPick(SleeperTradedPickDto dto)
+    {
+        return new TradedPick
+        {
+            Season = dto.Season,
+            Round = dto.Round,
+            RosterId = dto.RosterId,
+            OwnerId = dto.OwnerId,
+            PreviousOwnerId = dto.PreviousOwnerId
         };
     }
 

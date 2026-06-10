@@ -34,7 +34,7 @@
 @code {
     [Inject] private IJSRuntime JS { get; set; } = default!;
     [Inject] private NavigationManager Navigation { get; set; } = default!;
-    [Inject] private FanfootDbContext Db { get; set; } = default!;
+    [Inject] private PreferencesService Preferences { get; set; } = default!;
 
     private bool _drawerOpen = true;
     private bool _isDarkMode = false;
@@ -119,7 +119,7 @@
 
         if (!string.IsNullOrEmpty(_userId))
         {
-            var prefs = await Db.UserPreferences.FindAsync(_userId);
+            var prefs = await Preferences.GetAsync(_userId);
             if (prefs != null && _isDarkMode != prefs.IsDarkMode)
             {
                 _isDarkMode = prefs.IsDarkMode;
@@ -160,15 +160,7 @@
 
         if (string.IsNullOrEmpty(_userId)) return;
 
-        var prefs = await Db.UserPreferences.FindAsync(_userId);
-        if (prefs == null)
-        {
-            prefs = new UserPreferences { UserId = _userId };
-            Db.UserPreferences.Add(prefs);
-        }
-        prefs.IsDarkMode = _isDarkMode;
-        prefs.UpdatedAt = DateTime.UtcNow;
-        await Db.SaveChangesAsync();
+        await Preferences.SetDarkModeAsync(_userId, _isDarkMode);
     }
 
     private async Task ApplyBackground()

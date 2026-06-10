@@ -114,37 +114,13 @@ else
     private List<(int Season, List<(League League, List<Team> Teams)> Groups)> teamsBySeason = [];
 
     [Inject]
-    private FanfootDbContext Db { get; set; } = default!;
+    private UserService UserService { get; set; } = default!;
 
     protected override async Task OnInitializedAsync()
     {
-        user = await Db.Users.FindAsync(UserId);
+        user = await UserService.GetUserAsync(UserId);
         if (user == null) return;
 
-        var teams = await Db.Teams
-            .Where(t => t.OwnerId == UserId)
-            .ToListAsync();
-
-        if (teams.Count == 0) return;
-
-        var leagueIds = teams.Select(t => t.LeagueId).Distinct().ToList();
-        var leagues = await Db.Leagues
-            .Where(l => leagueIds.Contains(l.Id))
-            .ToListAsync();
-
-        var leagueMap = leagues.ToDictionary(l => l.Id);
-
-        teamsBySeason = teams
-            .GroupBy(t => leagueMap.TryGetValue(t.LeagueId, out var l) ? l.Season : 0)
-            .OrderByDescending(g => g.Key)
-            .Select(g => (
-                Season: g.Key,
-                Groups: g
-                    .GroupBy(t => leagueMap.GetValueOrDefault(t.LeagueId)!)
-                    .OrderBy(gg => gg.Key.Name)
-                    .Select(gg => (League: gg.Key, Teams: gg.OrderBy(t => t.TeamName).ToList()))
-                    .ToList()
-            ))
-            .ToList();
+        teamsBySeason = await UserService.GetUserTeamsBySeasonAsync(UserId);
     }
 }
