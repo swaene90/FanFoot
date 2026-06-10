@@ -1,8 +1,7 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Fanfoot.Infrastructure.Clients;
 using Fanfoot.Infrastructure.Data;
-using Fanfoot.Infrastructure.Services;
 
 namespace Fanfoot.Infrastructure;
 
@@ -27,12 +26,12 @@ public static class ServiceExtensions
             client.DefaultRequestHeaders.Add("User-Agent", "Fanfoot/1.0");
         });
 
-        services.AddHttpClient("ESPN", client =>
+        services.AddHttpClient<EspnClient>(client =>
         {
             client.BaseAddress = new Uri("https://site.api.espn.com/");
         });
 
-        services.AddScoped<LeagueService>();
+        services.AddScoped<LlmClient>();
 
         return services;
     }

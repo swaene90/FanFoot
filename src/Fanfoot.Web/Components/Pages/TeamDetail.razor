@@ -60,41 +60,20 @@ else
     [Inject]
     private LeagueService LeagueService { get; set; } = default!;
 
-    [Inject]
-    private FanfootDbContext Db { get; set; } = default!;
-
     protected override async Task OnInitializedAsync()
     {
         league = await LeagueService.GetLeagueAsync(LeagueId);
-        team = await Db.Teams.FindAsync(TeamId);
 
-        if (team == null) return;
+        var roster = await LeagueService.GetTeamRosterAsync(TeamId);
+        if (roster == null) return;
 
-        var user = team.OwnerId != null
-            ? await Db.Users.FirstOrDefaultAsync(u => u.Id == team.OwnerId)
-            : null;
-        managerName = user?.DisplayName ?? "—";
-
-        var rosterIds = DeserializeIds(team.Roster);
-        var starterIds = DeserializeIds(team.Starters);
-        var reserveIds = DeserializeIds(team.Reserve);
-        var taxiIds = DeserializeIds(team.Taxi);
-
-        var allIds = rosterIds.Concat(reserveIds).Concat(taxiIds).Distinct().ToList();
-
-        if (allIds.Count > 0)
-        {
-            rosterPlayers = await Db.Players
-                .Where(p => allIds.Contains(p.Id))
-                .ToListAsync();
-        }
-
-        var playerMap = rosterPlayers.ToDictionary(p => p.Id);
-
-        starters = starterIds.Select(id => playerMap.GetValueOrDefault(id)).OfType<Player>().ToList();
-        bench = rosterIds.Except(starterIds).Select(id => playerMap.GetValueOrDefault(id)).OfType<Player>().ToList();
-        reserve = reserveIds.Select(id => playerMap.GetValueOrDefault(id)).OfType<Player>().ToList();
-        taxi = taxiIds.Select(id => playerMap.GetValueOrDefault(id)).OfType<Player>().ToList();
+        team = roster.Team;
+        managerName = roster.ManagerName;
+        starters = roster.Starters;
+        bench = roster.Bench;
+        reserve = roster.Reserve;
+        taxi = roster.Taxi;
+        rosterPlayers = starters.Concat(bench).Concat(reserve).Concat(taxi).ToList();
     }
 
     private RenderFragment PlayerTable(List<Player> players) =>

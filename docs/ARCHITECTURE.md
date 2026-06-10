@@ -1,0 +1,75 @@
+# Architecture
+
+Fanfoot is a single ASP.NET Core project (`src/Fanfoot.Web`) organized into three distinct layers, separated by folder and namespace. Dependencies flow downward only:
+
+```
+Controllers / Components (UI)
+        │
+        ▼
+      Domain  (application logic + domain models)
+        │
+        ▼
+  Infrastructure  (database + external APIs)
+```
+
+## Layout
+
+```
+src/Fanfoot.Web/
+├── Controllers/                 # API endpoints + client-facing DTOs
+│   ├── AuthController.cs        #   POST /api/auth/login, /api/auth/logout
+│   ├── PlayersController.cs     #   POST /api/players/import
+│   └── LoginRequest.cs          #   request/response DTOs live beside the controllers
+│
+├── Components/                  # Blazor UI (pages, layout)
+│   └── Pages/                   #   pages consume Domain services only — never
+│                                #   the DbContext or HTTP clients directly
+│
+├── Domain/                      # namespace Fanfoot.Domain.*
+│   ├── Models/                  #   domain models (League, Team, Player, User,
+│   │                            #   DraftInfo, TradedPick, TeamRoster, ...)
+│   └── Services/                #   all application logic
+│       ├── LeagueService.cs     #   league/team/roster queries + Sleeper imports
+│       ├── UserService.cs       #   user profile + teams-by-season queries
+│       ├── AuthService.cs       #   sign-in, registration, league authorization
+│       ├── ChatService.cs       #   AI assistant context building + tool loop
+│       ├── PreferencesService.cs#   dark-mode preference
+│       └── PlayerImportService.cs  # nightly background import
+│
+└── Infrastructure/              # namespace Fanfoot.Infrastructure.*
+    ├── Data/
+    │   ├── Entities/            #   EF Core persistence entities (*Entity)
+    │   ├── FanfootDbContext.cs  #   explicit ToTable() mappings
+    │   └── DatabaseSeeder.cs    #   dev-only seed (local user, league, players)
+    ├── Clients/                 #   external HTTP clients + their DTOs
+    │   ├── SleeperClient.cs     #   Sleeper API (leagues, rosters, players, drafts)
+    │   ├── FantasyCalcClient.cs #   trade values
+    │   ├── EspnClient.cs        #   player news
+    │   └── LlmClient.cs         #   Groq/Ollama chat completions (OpenAI-compatible)
+    └── Mapping/
+        ├── SleeperMapper.cs     #   Sleeper DTO → entity / domain model
+        └── EntityMapper.cs      #   entity ↔ domain model
+```
+
+## Rules
+
+**Models exist in three flavors, one per layer.**
+
+| Kind | Location | Example |
+|------|----------|---------|
+| Client-facing DTOs | `Controllers/` | `LoginRequest` |
+| Domain models | `Domain/Models/` | `League`, `TeamRoster` |
+| Persistence entities & external API DTOs | `Infrastructure/` | `LeagueEntity`, `SleeperLeagueDto` |
+
+**Domain services own all application logic.** They inject `FanfootDbContext` directly (no repository layer) and the Infrastructure clients, but always return domain models — entities and external DTOs never cross out of a service's public API. `EntityMapper` converts at the boundary.
+
+**The UI never touches Infrastructure.** Pages and layouts inject Domain services only. `_Imports.razor` deliberately omits `Fanfoot.Infrastructure.*`.
+
+**Entities map to the original table names.** The `*Entity` split was done without a schema change — `FanfootDbContext` pins table names with `ToTable()`, and `dotnet ef migrations has-pending-model-changes` should stay clean after any rename-only refactor.
+
+## Registration
+
+- `AddFanfootInfrastructure(connectionString)` (`Infrastructure/ServiceExtensions.cs`) — DbContext, typed HTTP clients, `LlmClient`
+- `AddFanfootDomain()` (`Domain/ServiceExtensions.cs`) — all Domain services + the `PlayerImportService` hosted service
+
+Both are called from `Program.cs`, which otherwise only contains host wiring (auth cookie setup, MudBlazor, the named "Ollama" HttpClient, migration/seed on startup).

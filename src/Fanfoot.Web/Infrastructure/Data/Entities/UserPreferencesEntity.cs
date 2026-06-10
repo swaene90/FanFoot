@@ -1,6 +1,6 @@
-﻿namespace Fanfoot.Domain;
+namespace Fanfoot.Infrastructure.Data.Entities;
 
-public class UserPreferences
+public class UserPreferencesEntity
 {
     public string UserId { get; set; } = string.Empty;
     public bool IsDarkMode { get; set; }

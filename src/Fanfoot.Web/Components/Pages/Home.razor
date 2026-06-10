@@ -1,7 +1,5 @@
 ﻿@page "/"
 @implements IDisposable
-@using Microsoft.AspNetCore.Identity
-@using Microsoft.EntityFrameworkCore
 
 <PageTitle>Fanfoot - Sign In</PageTitle>
 
@@ -100,8 +98,6 @@
 </MudGrid>
 
 @code {
-    private const string AuthorizedLeagueId = "1354116239798046720";
-
     // Sign In
     private string loginEmail = string.Empty;
     private string loginPassword = string.Empty;
@@ -120,10 +116,7 @@
 
     [Inject] private IJSRuntime JS { get; set; } = default!;
     [Inject] private NavigationManager Navigation { get; set; } = default!;
-    [Inject] private SleeperClient Sleeper { get; set; } = default!;
-    [Inject] private LeagueService LeagueService { get; set; } = default!;
-    [Inject] private FanfootDbContext Db { get; set; } = default!;
-    [Inject] private IPasswordHasher<LocalUser> Hasher { get; set; } = default!;
+    [Inject] private AuthService Auth { get; set; } = default!;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -133,14 +126,10 @@
         try
         {
             var userId = await JS.InvokeAsync<string?>("fanfoot.getCookie", _cts.Token, "fanfoot_user");
-            if (!string.IsNullOrEmpty(userId))
+            if (!string.IsNullOrEmpty(userId) && await Auth.UserExistsAsync(userId))
             {
-                var localUser = await Db.LocalUsers.FindAsync([userId], _cts.Token);
-                if (localUser != null)
-                {
-                    Navigation.NavigateTo($"/user/{userId}", replace: true);
-                    return;
-                }
+                Navigation.NavigateTo($"/user/{userId}", replace: true);
+                return;
             }
         }
         catch { }
@@ -161,15 +150,8 @@
 
         try
         {
-            var localUser = await Db.LocalUsers.FirstOrDefaultAsync(u => u.Email == email);
-            if (localUser == null || string.IsNullOrEmpty(localUser.PasswordHash))
-            {
-                error = "Invalid email or password.";
-                return;
-            }
-
-            var result = Hasher.VerifyHashedPassword(localUser, localUser.PasswordHash, loginPassword);
-            if (result == PasswordVerificationResult.Failed)
+            var localUser = await Auth.ValidateCredentialsAsync(email, loginPassword);
+            if (localUser == null)
             {
                 error = "Invalid email or password.";
                 return;
@@ -210,74 +192,20 @@
 
         try
         {
-            var emailNorm = regEmail.Trim().ToLower();
-
-            var emailTaken = await Db.LocalUsers.AnyAsync(u => u.Email == emailNorm);
-            if (emailTaken)
+            var result = await Auth.RegisterAsync(regEmail, regPassword, regSleeperUsername, message =>
             {
-                error = "An account with this email already exists.";
+                loadingMessage = message;
+                _ = InvokeAsync(StateHasChanged);
+            });
+
+            if (!result.Success)
+            {
+                error = result.Error;
                 return;
             }
 
-            var sleeperUser = await Sleeper.GetUserAsync(regSleeperUsername.Trim());
-            if (sleeperUser == null || string.IsNullOrEmpty(sleeperUser.UserId))
-            {
-                error = "Sleeper username not found.";
-                return;
-            }
-
-            var userId = sleeperUser.UserId;
-
-            loadingMessage = "Checking your leagues...";
-            StateHasChanged();
-
-            var nflState = await Sleeper.GetNflStateAsync();
-            if (nflState == null) throw new Exception("Could not reach the Sleeper API.");
-
-            var authorized = false;
-            foreach (var season in new[] { nflState.Season, (int.Parse(nflState.Season) - 1).ToString() })
-            {
-                var leagues = await Sleeper.GetUserLeaguesAsync(userId, season);
-                if (leagues != null && leagues.Any(l => l.LeagueId == AuthorizedLeagueId))
-                {
-                    authorized = true;
-                    break;
-                }
-            }
-
-            if (!authorized)
-            {
-                error = "You are not a member of the authorized league.";
-                return;
-            }
-
-            var hash = Hasher.HashPassword(new LocalUser(), regPassword);
-            var existing = await Db.LocalUsers.FindAsync(userId);
-
-            if (existing == null)
-            {
-                loadingMessage = "Importing your leagues...";
-                StateHasChanged();
-                await ImportUserLeaguesAsync(userId, nflState.Season);
-
-                Db.LocalUsers.Add(new LocalUser
-                {
-                    SleeperUserId = userId,
-                    Email = emailNorm,
-                    PasswordHash = hash,
-                    CreatedAt = DateTime.UtcNow
-                });
-            }
-            else
-            {
-                // Legacy user — link email/password to existing record
-                existing.Email = emailNorm;
-                existing.PasswordHash = hash;
-            }
-
-            await Db.SaveChangesAsync();
-            await JS.InvokeVoidAsync("fanfoot.setCookie", "fanfoot_user", userId, 604800);
-            Navigation.NavigateTo($"/user/{userId}", replace: true);
+            await JS.InvokeVoidAsync("fanfoot.setCookie", "fanfoot_user", result.UserId, 604800);
+            Navigation.NavigateTo($"/user/{result.UserId}", replace: true);
         }
         catch (Exception ex)
         {
@@ -287,25 +215,6 @@
         {
             loading = false;
             StateHasChanged();
-        }
-    }
-
-    private async Task ImportUserLeaguesAsync(string userId, string currentSeason)
-    {
-        var seen = new HashSet<string>();
-        foreach (var season in new[] { currentSeason, (int.Parse(currentSeason) - 1).ToString() })
-        {
-            var leagues = await Sleeper.GetUserLeaguesAsync(userId, season);
-            if (leagues == null) continue;
-            foreach (var league in leagues)
-            {
-                if (!seen.Add(league.LeagueId)) continue;
-                loadingMessage = $"Importing {league.Name}...";
-                StateHasChanged();
-                await LeagueService.ImportLeagueAsync(league.LeagueId);
-                await LeagueService.ImportUsersAsync(league.LeagueId);
-                await LeagueService.ImportRostersAsync(league.LeagueId);
-            }
         }
     }
 

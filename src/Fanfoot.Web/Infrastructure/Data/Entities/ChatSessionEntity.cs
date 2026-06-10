@@ -1,6 +1,6 @@
-﻿namespace Fanfoot.Domain;
+namespace Fanfoot.Infrastructure.Data.Entities;
 
-public class ChatSession
+public class ChatSessionEntity
 {
     public string Id { get; set; } = Guid.NewGuid().ToString();
     public string UserId { get; set; } = string.Empty;

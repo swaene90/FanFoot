@@ -1,23 +1,20 @@
-﻿using System.Net.Http.Json;
 using System.Text.Json;
-using System.Text.Json.Serialization;
-using Fanfoot.Domain;
+using Fanfoot.Domain.Models;
 using Fanfoot.Infrastructure.Clients;
 using Fanfoot.Infrastructure.Data;
+using Fanfoot.Infrastructure.Data.Entities;
+using Fanfoot.Infrastructure.Mapping;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 
-namespace Fanfoot.Web.Services;
+namespace Fanfoot.Domain.Services;
 
 public class ChatService
 {
     private readonly FanfootDbContext _db;
     private readonly SleeperClient _sleeper;
     private readonly FantasyCalcClient _fantasyCalc;
-    private readonly IHttpClientFactory _httpFactory;
-    private readonly HttpClient _http;
-    private readonly string _model;
-    private readonly bool _isGroq;
+    private readonly EspnClient _espn;
+    private readonly LlmClient _llm;
     private readonly ILogger<ChatService> _logger;
 
     // FantasyCalc value cache — scoped to circuit lifetime, keyed per league
@@ -29,19 +26,16 @@ public class ChatService
         FanfootDbContext db,
         SleeperClient sleeper,
         FantasyCalcClient fantasyCalc,
-        IHttpClientFactory httpClientFactory,
-        IConfiguration configuration,
+        EspnClient espn,
+        LlmClient llm,
         ILogger<ChatService> logger)
     {
         _db = db;
         _sleeper = sleeper;
         _fantasyCalc = fantasyCalc;
-        _httpFactory = httpClientFactory;
-        _http = httpClientFactory.CreateClient("Ollama");
+        _espn = espn;
+        _llm = llm;
         _logger = logger;
-        _isGroq = !string.IsNullOrEmpty(configuration["GroqApiKey"]);
-        _model = configuration["LlmModel"]
-            ?? (_isGroq ? "llama-3.3-70b-versatile" : "qwen2.5:7b");
     }
 
     public async Task<string> GetUserContextAsync(string userId)
@@ -77,7 +71,7 @@ public class ChatService
 
             if (starterIds.Count > 0)
             {
-                var names = starterIds.Select(id => playerMap.GetValueOrDefault(id)).OfType<Player>()
+                var names = starterIds.Select(id => playerMap.GetValueOrDefault(id)).OfType<PlayerEntity>()
                     .Select(p => $"{p.FirstName} {p.LastName} ({p.Position})");
                 context += $"\n  Starters: {string.Join(", ", names)}";
             }
@@ -85,7 +79,7 @@ public class ChatService
             var benchIds = rosterIds.Except(starterIds).ToList();
             if (benchIds.Count > 0)
             {
-                var names = benchIds.Select(id => playerMap.GetValueOrDefault(id)).OfType<Player>()
+                var names = benchIds.Select(id => playerMap.GetValueOrDefault(id)).OfType<PlayerEntity>()
                     .Select(p => $"{p.FirstName} {p.LastName} ({p.Position})");
                 context += $"\n  Bench: {string.Join(", ", names)}";
             }
@@ -123,8 +117,8 @@ public class ChatService
         // Fetch current week and matchup from Sleeper
         var state = await _sleeper.GetNflStateAsync();
         var currentWeek = state?.Week ?? 0;
-        Team? userTeam = null;
-        Team? opponentTeam = null;
+        TeamEntity? userTeam = null;
+        TeamEntity? opponentTeam = null;
 
         if (viewerUserId != null)
         {
@@ -220,7 +214,7 @@ public class ChatService
         return sb.ToString();
     }
 
-    private void AppendRoster(System.Text.StringBuilder sb, Team team, Dictionary<string, Player> playerMap, bool isDynasty, string? label)
+    private void AppendRoster(System.Text.StringBuilder sb, TeamEntity team, Dictionary<string, PlayerEntity> playerMap, bool isDynasty, string? label)
     {
         var starterIds = JsonSerializer.Deserialize<List<string>>(team.Starters ?? "[]") ?? [];
         var rosterIds = JsonSerializer.Deserialize<List<string>>(team.Roster ?? "[]") ?? [];
@@ -229,19 +223,19 @@ public class ChatService
 
         if (starterIds.Count > 0)
         {
-            var names = starterIds.Select(id => playerMap.GetValueOrDefault(id)).OfType<Player>()
+            var names = starterIds.Select(id => playerMap.GetValueOrDefault(id)).OfType<PlayerEntity>()
                 .Select(p => $"{p.FirstName} {p.LastName} ({p.Position}, {p.Team ?? "FA"}{PlayerValueSuffix(p.Id, isDynasty)})");
             sb.AppendLine($"  Starters: {string.Join(", ", names)}");
         }
         if (benchIds.Count > 0)
         {
-            var names = benchIds.Select(id => playerMap.GetValueOrDefault(id)).OfType<Player>()
+            var names = benchIds.Select(id => playerMap.GetValueOrDefault(id)).OfType<PlayerEntity>()
                 .Select(p => $"{p.FirstName} {p.LastName} ({p.Position}, {p.Team ?? "FA"}{PlayerValueSuffix(p.Id, isDynasty)})");
             sb.AppendLine($"  Bench: {string.Join(", ", names)}");
         }
         if (reserveIds.Count > 0)
         {
-            var names = reserveIds.Select(id => playerMap.GetValueOrDefault(id)).OfType<Player>()
+            var names = reserveIds.Select(id => playerMap.GetValueOrDefault(id)).OfType<PlayerEntity>()
                 .Select(p => $"{p.FirstName} {p.LastName} ({p.Position}, {p.Team ?? "FA"})");
             sb.AppendLine($"  IR: {string.Join(", ", names)}");
         }
@@ -250,7 +244,7 @@ public class ChatService
     public async Task<string> AskAsync(string systemPrompt, List<(string Role, string Content)> history)
     {
         _logger.LogInformation("AskAsync: model={Model} systemPromptLength={Length} historyCount={Count}",
-            _model, systemPrompt?.Length ?? 0, history.Count);
+            _llm.Model, systemPrompt?.Length ?? 0, history.Count);
 
         var messages = new List<LlmMessage>
         {
@@ -262,23 +256,7 @@ public class ChatService
 
         for (int i = 0; i < 3; i++)
         {
-            var request = new LlmChatRequest
-            {
-                Model = _model,
-                Messages = messages,
-                Tools = tools,
-                Stream = false,
-                Options = _isGroq ? null : new Dictionary<string, object> { ["num_ctx"] = 8192 }
-            };
-
-            var response = await _http.PostAsJsonAsync("chat/completions", request);
-            if (!response.IsSuccessStatusCode)
-            {
-                var errorBody = await response.Content.ReadAsStringAsync();
-                throw new HttpRequestException($"{(int)response.StatusCode} {response.ReasonPhrase}: {errorBody}");
-            }
-            var result = await response.Content.ReadFromJsonAsync<LlmChatResponse>();
-            var msg = result?.Choices?.FirstOrDefault()?.Message;
+            var msg = await _llm.ChatAsync(messages, tools);
 
             if (msg?.ToolCalls is not { Count: > 0 })
                 return CleanResponse(msg?.Content);
@@ -303,7 +281,7 @@ public class ChatService
 
     // ── Settings ──────────────────────────────────────────────────────────────
 
-    private async Task<(string Context, bool IsDynasty, bool IsPpr, int NumQbs)> BuildSettingsAsync(string leagueId, League league)
+    private async Task<(string Context, bool IsDynasty, bool IsPpr, int NumQbs)> BuildSettingsAsync(string leagueId, LeagueEntity league)
     {
         var dto = await _sleeper.GetLeagueAsync(leagueId);
         if (dto == null) return ("", false, false, 1);
@@ -422,7 +400,7 @@ public class ChatService
 
     // ── Picks context ─────────────────────────────────────────────────────────
 
-    private async Task<string> BuildPicksContextAsync(string leagueId, List<Team> teams)
+    private async Task<string> BuildPicksContextAsync(string leagueId, List<TeamEntity> teams)
     {
         var tradedPicks = await _sleeper.GetTradedPicksAsync(leagueId);
         if (tradedPicks == null || tradedPicks.Count == 0) return "";
@@ -461,7 +439,7 @@ public class ChatService
         return sb.ToString();
     }
 
-    private async Task<string> BuildDynastyPicksContextAsync(string leagueId, List<Team> teams)
+    private async Task<string> BuildDynastyPicksContextAsync(string leagueId, List<TeamEntity> teams)
     {
         var tradedPicks = await _sleeper.GetTradedPicksAsync(leagueId);
         var state = await _sleeper.GetNflStateAsync();
@@ -762,10 +740,7 @@ public class ChatService
 
         try
         {
-            var http = _httpFactory.CreateClient("ESPN");
-            var response = await http.GetFromJsonAsync<EspnNewsResponseDto>(
-                "apis/site/v2/sports/football/nfl/news?limit=100",
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            var response = await _espn.GetNewsAsync();
 
             if (response?.Articles == null) return "Could not retrieve NFL news.";
 
@@ -795,11 +770,12 @@ public class ChatService
 
     public async Task<List<ChatSession>> GetSessionsAsync(string userId)
     {
-        return await _db.ChatSessions
+        var sessions = await _db.ChatSessions
             .Where(s => s.UserId == userId)
             .OrderByDescending(s => s.UpdatedAt)
             .Take(10)
             .ToListAsync();
+        return sessions.Select(EntityMapper.ToDomain).ToList();
     }
 
     public async Task SaveSessionAsync(
@@ -809,7 +785,7 @@ public class ChatService
         var session = await _db.ChatSessions.FindAsync(sessionId);
         if (session == null)
         {
-            session = new ChatSession { Id = sessionId, UserId = userId, LeagueId = leagueId, CreatedAt = DateTimeOffset.UtcNow };
+            session = new ChatSessionEntity { Id = sessionId, UserId = userId, LeagueId = leagueId, CreatedAt = DateTimeOffset.UtcNow };
             _db.ChatSessions.Add(session);
         }
 
@@ -859,100 +835,5 @@ public class ChatService
         var idx = content.IndexOf("<|python_tag|>", StringComparison.OrdinalIgnoreCase);
         if (idx >= 0) content = content[..idx].TrimEnd();
         return string.IsNullOrWhiteSpace(content) ? "Sorry, I couldn't process that." : content;
-    }
-
-    // ── OpenAI-compatible DTOs (works with Groq and Ollama /v1/) ─────────────
-
-    private class LlmMessage
-    {
-        [JsonPropertyName("role")]
-        public string Role { get; set; } = string.Empty;
-
-        [JsonPropertyName("content")]
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public string? Content { get; set; }
-
-        [JsonPropertyName("tool_calls")]
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public List<LlmToolCall>? ToolCalls { get; set; }
-
-        [JsonPropertyName("tool_call_id")]
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public string? ToolCallId { get; set; }
-    }
-
-    private class LlmToolCall
-    {
-        [JsonPropertyName("id")]
-        public string Id { get; set; } = string.Empty;
-
-        [JsonPropertyName("type")]
-        public string Type { get; set; } = "function";
-
-        [JsonPropertyName("function")]
-        public LlmToolCallFunction? Function { get; set; }
-    }
-
-    private class LlmToolCallFunction
-    {
-        [JsonPropertyName("name")]
-        public string Name { get; set; } = string.Empty;
-
-        [JsonPropertyName("arguments")]
-        public string Arguments { get; set; } = string.Empty;
-    }
-
-    private class LlmChatRequest
-    {
-        [JsonPropertyName("model")]
-        public string Model { get; set; } = string.Empty;
-
-        [JsonPropertyName("messages")]
-        public List<LlmMessage> Messages { get; set; } = [];
-
-        [JsonPropertyName("tools")]
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public List<LlmTool>? Tools { get; set; }
-
-        [JsonPropertyName("stream")]
-        public bool Stream { get; set; }
-
-        // Ollama-specific: sets the context window. Ignored by Groq.
-        [JsonPropertyName("options")]
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public Dictionary<string, object>? Options { get; set; }
-    }
-
-    private class LlmTool
-    {
-        [JsonPropertyName("type")]
-        public string Type { get; set; } = "function";
-
-        [JsonPropertyName("function")]
-        public LlmToolFunction Function { get; set; } = new();
-    }
-
-    private class LlmToolFunction
-    {
-        [JsonPropertyName("name")]
-        public string Name { get; set; } = string.Empty;
-
-        [JsonPropertyName("description")]
-        public string Description { get; set; } = string.Empty;
-
-        [JsonPropertyName("parameters")]
-        public object Parameters { get; set; } = new();
-    }
-
-    private class LlmChatResponse
-    {
-        [JsonPropertyName("choices")]
-        public List<LlmChoice>? Choices { get; set; }
-    }
-
-    private class LlmChoice
-    {
-        [JsonPropertyName("message")]
-        public LlmMessage? Message { get; set; }
     }
 }

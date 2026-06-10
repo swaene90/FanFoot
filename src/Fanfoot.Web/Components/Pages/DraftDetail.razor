@@ -130,7 +130,7 @@ else
     public string LeagueId { get; set; } = string.Empty;
 
     private League? league;
-    private SleeperDraftDto? draftInfo;
+    private DraftInfo? draftInfo;
     private List<DraftPick> picks = [];
     private List<Team> teams = [];
     private string selectedTeamId = "";
@@ -150,9 +150,6 @@ else
     [Inject]
     private LeagueService LeagueService { get; set; } = default!;
 
-    [Inject]
-    private FanfootDbContext Db { get; set; } = default!;
-
     protected override async Task OnInitializedAsync()
     {
         league = await LeagueService.GetLeagueAsync(LeagueId);
@@ -163,8 +160,8 @@ else
 
         isSnake = string.Equals(draftInfo.Type, "snake", StringComparison.OrdinalIgnoreCase);
 
-        teams = await Db.Teams.Where(t => t.LeagueId == LeagueId).ToListAsync();
-        var users = await Db.Users.Where(u => u.LeagueId == LeagueId).ToListAsync();
+        teams = await LeagueService.GetLeagueTeamsAsync(LeagueId);
+        var users = await LeagueService.GetLeagueUsersAsync(LeagueId);
         var userDisplayMap = users.ToDictionary(u => u.Id, u => u.DisplayName ?? u.Id);
         teamMap = teams.ToDictionary(
             t => t.Id.Split('_').Last(),
@@ -213,7 +210,7 @@ else
         }
         else
         {
-            totalPicks = (draftInfo.Settings?.Rounds ?? 0) * (draftInfo.Settings?.Teams ?? 0);
+            totalPicks = (draftInfo.Rounds ?? 0) * (draftInfo.Teams ?? 0);
             BuildDraftOrder();
         }
     }
@@ -227,7 +224,7 @@ else
                 .ToList();
 
             var numTeams = slots.Count;
-            var rounds = draftInfo.Settings?.Rounds ?? 4;
+            var rounds = draftInfo.Rounds ?? 4;
             draftOrder = [];
             var pick = 1;
 
@@ -257,7 +254,7 @@ else
                 .ToList();
 
             var numTeams = order.Count;
-            var rounds = draftInfo.Settings?.Rounds ?? 4;
+            var rounds = draftInfo.Rounds ?? 4;
             draftOrder = [];
             var pick = 1;
 

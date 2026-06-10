@@ -1,6 +1,6 @@
-﻿namespace Fanfoot.Domain;
+namespace Fanfoot.Infrastructure.Data.Entities;
 
-public class PlayerStats
+public class PlayerStatsEntity
 {
     public string Id { get; set; } = string.Empty;
     public string PlayerId { get; set; } = string.Empty;

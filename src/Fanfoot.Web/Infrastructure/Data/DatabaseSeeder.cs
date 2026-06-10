@@ -1,6 +1,7 @@
 using System.Text.Json;
-using Fanfoot.Domain;
+using Fanfoot.Domain.Models;
 using Fanfoot.Infrastructure.Clients;
+using Fanfoot.Infrastructure.Data.Entities;
 using Fanfoot.Infrastructure.Mapping;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
@@ -22,16 +23,16 @@ public static class DatabaseSeeder
         var hasher = services.GetRequiredService<IPasswordHasher<LocalUser>>();
         var env = services.GetRequiredService<IWebHostEnvironment>();
 
-        var user = new LocalUser
+        var user = new LocalUserEntity
         {
             SleeperUserId = "dev_user",
             Email = "admin@local.dev",
             CreatedAt = DateTime.UtcNow
         };
-        user.PasswordHash = hasher.HashPassword(user, "password");
+        user.PasswordHash = hasher.HashPassword(new LocalUser(), "password");
         db.LocalUsers.Add(user);
 
-        db.Leagues.Add(new League
+        db.Leagues.Add(new LeagueEntity
         {
             Id = "dev_league",
             Name = "Dev League",
