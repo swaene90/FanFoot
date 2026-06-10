@@ -49,7 +49,7 @@ public static class DatabaseSeeder
 
     private static async Task SeedPlayersAsync(FanfootDbContext db, IWebHostEnvironment env)
     {
-        var filePath = Path.Combine(env.ContentRootPath, "Data", "players.json");
+        var filePath = Path.Combine(env.ContentRootPath, "localPlayerData.json");
         await using var stream = File.OpenRead(filePath);
         var playerDtos = await JsonSerializer.DeserializeAsync<Dictionary<string, SleeperPlayerDto>>(stream, JsonOptions) ?? [];
 
