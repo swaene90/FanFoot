@@ -1,12 +1,14 @@
 ﻿using System.Net.Http.Json;
 using System.Text.Json;
 using Fanfoot.Domain;
+using Microsoft.Extensions.Hosting;
 
 namespace Fanfoot.Infrastructure.Clients;
 
 public class SleeperClient
 {
     private readonly HttpClient _http;
+    private readonly IHostEnvironment _env;
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true
@@ -14,14 +16,21 @@ public class SleeperClient
 
     private const string BaseUrl = "https://api.sleeper.app/v1/";
 
-    public SleeperClient(HttpClient http)
+    public SleeperClient(HttpClient http, IHostEnvironment env)
     {
         _http = http;
+        _env = env;
         _http.BaseAddress = new Uri(BaseUrl);
     }
 
     public async Task<Dictionary<string, SleeperPlayerDto>?> GetAllPlayersAsync(CancellationToken ct = default)
     {
+        var localFile = Path.Combine(_env.ContentRootPath, "localPlayerData.json");
+        if (_env.IsDevelopment() && File.Exists(localFile))
+        {
+            await using var stream = File.OpenRead(localFile);
+            return await JsonSerializer.DeserializeAsync<Dictionary<string, SleeperPlayerDto>>(stream, JsonOptions, ct);
+        }
         return await _http.GetFromJsonAsync<Dictionary<string, SleeperPlayerDto>>("players/nfl", JsonOptions, ct);
     }
 

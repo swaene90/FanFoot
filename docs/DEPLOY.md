@@ -38,8 +38,8 @@ The `.env` file is not in git, so it needs to be created manually on the server:
 
 ```bash
 cat > /mnt/user/appdata/fanfoot/.env <<EOF
-ConnectionStrings__DefaultConnection=Host=192.168.0.48;Port=5432;Database=fanfoot;Username=postgres;Password=password
-DB_CONNECTION_STRING=Host=192.168.0.48;Port=5432;Database=fanfoot;Username=postgres;Password=password
+ConnectionStrings__DefaultConnection=Host=<unraid-ip>;Port=5432;Database=fanfoot;Username=postgres;Password=<your-db-password>
+DB_CONNECTION_STRING=Host=<unraid-ip>;Port=5432;Database=fanfoot;Username=postgres;Password=<your-db-password>
 EOF
 ```
 

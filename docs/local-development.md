@@ -32,16 +32,16 @@ On first startup the app will automatically:
 2. Seed the database with:
    - A local user (`admin@local.dev` / `password`)
    - A dev league
-   - All NFL player data from `src/Fanfoot.Web/Data/players.json`
+   - All NFL player data from `src/Fanfoot.Web/localPlayerData.json`
 
 Seeding is idempotent — subsequent restarts skip it if data already exists.
 
 ## Player Data
 
-`src/Fanfoot.Web/Data/players.json` is a snapshot of the Sleeper NFL players API. To refresh it:
+`src/Fanfoot.Web/localPlayerData.json` is a snapshot of the Sleeper NFL players API. To refresh it:
 
 ```powershell
-Invoke-WebRequest https://api.sleeper.app/v1/players/nfl -OutFile src/Fanfoot.Web/Data/players.json
+Invoke-WebRequest https://api.sleeper.app/v1/players/nfl -OutFile src/Fanfoot.Web/localPlayerData.json
 ```
 
 ## EF Core Migrations
