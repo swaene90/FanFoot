@@ -16,3 +16,8 @@ src/Fanfoot.Web/appsettings.Development.json
 src/Fanfoot.Web/Fanfoot.Web.json
 src/Fanfoot.Web/ClientApp/node_modules/
 src/Fanfoot.Web/ClientApp/*.tsbuildinfo
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+.beads-credential-key
+.beads/proxieddb/

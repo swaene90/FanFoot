@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "fanfoot",
+  "project_id": "50c8b004-e4e6-45fe-a3d4-f69143eaa7e6"
+}
