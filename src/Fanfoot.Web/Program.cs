@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Identity;
 using Fanfoot.Domain.Models;
 using Fanfoot.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -90,7 +91,15 @@ app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseAntiforgery();
-app.MapOpenApi();
+
+var openApi = app.MapOpenApi();
+var scalar = app.MapScalarApiReference("/scalar");
+
+if (!app.Environment.IsDevelopment())
+{
+    openApi.RequireAuthorization();
+    scalar.RequireAuthorization();
+}
 
 app.MapControllers();
 app.MapFallbackToFile("index.html");
