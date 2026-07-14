@@ -778,11 +778,19 @@ public class ChatService
         return sessions.Select(EntityMapper.ToDomain).ToList();
     }
 
+    public async Task<ChatSession?> GetSessionAsync(string userId, string sessionId)
+    {
+        var session = await _db.ChatSessions.FirstOrDefaultAsync(s => s.Id == sessionId && s.UserId == userId);
+        return session == null ? null : EntityMapper.ToDomain(session);
+    }
+
     public async Task SaveSessionAsync(
         string sessionId, string userId, string? leagueId,
         string title, List<(string Role, string Content)> history)
     {
         var session = await _db.ChatSessions.FindAsync(sessionId);
+        if (session != null && session.UserId != userId)
+            throw new UnauthorizedAccessException("Chat session is not owned by this user.");
         if (session == null)
         {
             session = new ChatSessionEntity { Id = sessionId, UserId = userId, LeagueId = leagueId, CreatedAt = DateTimeOffset.UtcNow };

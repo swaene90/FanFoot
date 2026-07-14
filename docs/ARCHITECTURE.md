@@ -3,7 +3,7 @@
 Fanfoot is a single ASP.NET Core project (`src/Fanfoot.Web`) organized into three distinct layers, separated by folder and namespace. Dependencies flow downward only:
 
 ```
-Controllers / Components (UI)
+React client / Controllers (API)
         │
         ▼
       Domain  (application logic + domain models)
@@ -17,13 +17,13 @@ Controllers / Components (UI)
 ```
 src/Fanfoot.Web/
 ├── Controllers/                 # API endpoints + client-facing DTOs
-│   ├── AuthController.cs        #   POST /api/auth/login, /api/auth/logout
-│   ├── PlayersController.cs     #   POST /api/players/import
-│   └── LoginRequest.cs          #   request/response DTOs live beside the controllers
+│   ├── AuthController.cs        #   session, login, registration, CSRF endpoints
+│   ├── MeController.cs          #   profile and preferences DTO endpoints
+│   ├── LeaguesController.cs     #   member-scoped league, roster, and draft endpoints
+│   └── ChatController.cs        #   owner-scoped chat endpoints
 │
-├── Components/                  # Blazor UI (pages, layout)
-│   └── Pages/                   #   pages consume Domain services only — never
-│                                #   the DbContext or HTTP clients directly
+├── ClientApp/                   # React/Vite SPA, built into wwwroot
+│   └── src/                     #   routes, API client, and custom CSS
 │
 ├── Domain/                      # namespace Fanfoot.Domain.*
 │   ├── Models/                  #   domain models (League, Team, Player, User,
@@ -57,13 +57,13 @@ src/Fanfoot.Web/
 
 | Kind | Location | Example |
 |------|----------|---------|
-| Client-facing DTOs | `Controllers/` | `LoginRequest` |
+| Client-facing DTOs | `Api/Dtos/` | `LeagueDto`, `RosterDto` |
 | Domain models | `Domain/Models/` | `League`, `TeamRoster` |
 | Persistence entities & external API DTOs | `Infrastructure/` | `LeagueEntity`, `SleeperLeagueDto` |
 
 **Domain services own all application logic.** They inject `FanfootDbContext` directly (no repository layer) and the Infrastructure clients, but always return domain models — entities and external DTOs never cross out of a service's public API. `EntityMapper` converts at the boundary.
 
-**The UI never touches Infrastructure.** Pages and layouts inject Domain services only. `_Imports.razor` deliberately omits `Fanfoot.Infrastructure.*`.
+**The React client only accesses API DTOs.** Controllers and Domain services retain Infrastructure access; external API clients never run in the browser.
 
 **Entities map to the original table names.** The `*Entity` split was done without a schema change — `FanfootDbContext` pins table names with `ToTable()`, and `dotnet ef migrations has-pending-model-changes` should stay clean after any rename-only refactor.
 
@@ -72,4 +72,4 @@ src/Fanfoot.Web/
 - `AddFanfootInfrastructure(connectionString)` (`Infrastructure/ServiceExtensions.cs`) — DbContext, typed HTTP clients, `LlmClient`
 - `AddFanfootDomain()` (`Domain/ServiceExtensions.cs`) — all Domain services + the `PlayerImportService` hosted service
 
-Both are called from `Program.cs`, which otherwise only contains host wiring (auth cookie setup, MudBlazor, the named "Ollama" HttpClient, migration/seed on startup).
+Both are called from `Program.cs`, which otherwise contains host wiring (cookie auth, antiforgery, SPA static files, the named "Ollama" HttpClient, migration/seed on startup).

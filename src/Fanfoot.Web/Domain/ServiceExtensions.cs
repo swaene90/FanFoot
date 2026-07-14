@@ -11,6 +11,7 @@ public static class ServiceExtensions
         services.AddScoped<AuthService>();
         services.AddScoped<PreferencesService>();
         services.AddScoped<ChatService>();
+        services.AddScoped<ResourceAccessService>();
         services.AddHostedService<PlayerImportService>();
 
         return services;

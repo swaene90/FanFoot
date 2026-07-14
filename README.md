@@ -1,6 +1,6 @@
 ﻿# Fanfoot
 
-A Blazor Interactive Server app for tracking Sleeper fantasy football leagues, with an AI assistant powered by a local Ollama model.
+A React single-page app with an ASP.NET Core API for tracking Sleeper fantasy football leagues, with an AI assistant powered by a local Ollama model.
 
 ## Features
 
@@ -13,11 +13,12 @@ A Blazor Interactive Server app for tracking Sleeper fantasy football leagues, w
 - Trade value data from FantasyCalc (dynasty and redraft)
 - Real-time player stats and NFL news via tools
 - Chat history — last 10 sessions per user persisted to the database
-- Player data synced nightly via background service or on-demand
+- Player data synced nightly via a background service
 
 ## Tech Stack
 
-- **.NET 10** Blazor Interactive Server
+- **React + TypeScript + Vite** single-page client
+- **.NET 10** API host with cookie authentication
 - **PostgreSQL** via EF Core + Npgsql
 - **Ollama** for local AI inference (`qwen2.5:7b` by default)
 - **Sleeper API** for league, roster, and player data
@@ -46,7 +47,7 @@ The app is organized into three layers — **Controllers** (API endpoints + clie
 ```
 src/Fanfoot.Web/
 ├── Controllers/      # API controllers + request/response DTOs
-├── Components/       # Blazor pages and layout
+├── ClientApp/        # React/Vite application, built into wwwroot
 ├── Domain/           # Domain models + application services
 └── Infrastructure/   # DbContext, entities, Sleeper/FantasyCalc/ESPN/LLM clients
 ```
