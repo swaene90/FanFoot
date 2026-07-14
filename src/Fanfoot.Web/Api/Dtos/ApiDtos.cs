@@ -18,6 +18,7 @@ public record DraftOrderDto(int Round, int PickNumber, string TeamId, string Tea
 public record DraftDto(LeagueDto League, string? Status, string? Type, int TotalPicks, IReadOnlyList<TeamDto> Teams, IReadOnlyList<DraftPickDto> Picks, IReadOnlyList<DraftOrderDto> PlannedOrder);
 public record ChatSessionDto(string Id, string? LeagueId, string Title, DateTimeOffset UpdatedAt);
 public record ChatMessageDto(string Role, string Content);
+public record ChatModelDto(string Provider, string Model);
 public record ChatSessionDetailDto(ChatSessionDto Session, IReadOnlyList<ChatMessageDto> Messages);
-public record SendChatMessageRequest(string? SessionId, string? LeagueId, string Message);
+public record SendChatMessageRequest(string? SessionId, string? LeagueId, string? Provider, string? Model, string Message);
 public record SendChatMessageResponse(ChatSessionDetailDto Session, ChatMessageDto AssistantMessage);

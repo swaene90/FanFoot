@@ -27,6 +27,13 @@ public class ChatController(ChatService chat, ResourceAccessService access) : Co
         return session == null ? NotFound() : Ok(ToDetail(session));
     }
 
+    [HttpGet("models")]
+    public async Task<ActionResult<IReadOnlyList<ChatModelDto>>> Models()
+    {
+        var models = await chat.GetModelsAsync();
+        return Ok(models.Select(model => new ChatModelDto(model.Provider, model.Model)).ToList());
+    }
+
     [HttpPost("messages")]
     [ValidateAntiForgeryToken]
     public async Task<ActionResult<SendChatMessageResponse>> Send(SendChatMessageRequest request)
@@ -44,7 +51,7 @@ public class ChatController(ChatService chat, ResourceAccessService access) : Co
         var prompt = string.IsNullOrEmpty(request.LeagueId)
             ? await chat.GetUserContextAsync(UserId)
             : await chat.GetLeagueContextAsync(request.LeagueId, UserId);
-        var answer = await chat.AskAsync(prompt, history);
+        var answer = await chat.AskAsync(prompt, history, request.Provider, request.Model);
         history.Add(("assistant", answer));
         await chat.SaveSessionAsync(sessionId, UserId, request.LeagueId, history.First(item => item.Role == "user").Content, history);
         var saved = await chat.GetSessionAsync(UserId, sessionId);

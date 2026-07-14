@@ -20,7 +20,7 @@ A React single-page app with an ASP.NET Core API for tracking Sleeper fantasy fo
 - **React + TypeScript + Vite** single-page client
 - **.NET 10** API host with cookie authentication
 - **PostgreSQL** via EF Core + Npgsql
-- **Ollama** for local AI inference (`qwen2.5:7b` by default)
+- **DeepSeek**, **Groq**, or **Ollama** for AI inference, selectable from the AI chat screen
 - **Sleeper API** for league, roster, and player data
 - **FantasyCalc API** for trade values
 - **ESPN API** for player news
@@ -36,7 +36,7 @@ See [docs/local-development.md](docs/local-development.md) for full setup instru
 docker compose up --build
 ```
 
-The app runs on port `5020`. Configure `DB_CONNECTION_STRING` and `OllamaUrl` in your `.env` file before starting.
+The app runs on port `5020`. Configure `DB_CONNECTION_STRING`, `OLLAMA_URL`, and optionally `DEEPSEEK_API_KEY` or `GROQ_API_KEY` in `.env`. Select a configured provider and model from the AI chat screen.
 
 See [docs/DEPLOY.md](docs/DEPLOY.md) for setting up auto-deploy to an Unraid server via GitHub Actions.
 

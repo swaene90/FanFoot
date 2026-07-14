@@ -241,10 +241,12 @@ public class ChatService
         }
     }
 
-    public async Task<string> AskAsync(string systemPrompt, List<(string Role, string Content)> history)
+    public Task<IReadOnlyList<(string Provider, string Model)>> GetModelsAsync() => _llm.GetModelsAsync();
+
+    public async Task<string> AskAsync(string systemPrompt, List<(string Role, string Content)> history, string? provider, string? model)
     {
-        _logger.LogInformation("AskAsync: model={Model} systemPromptLength={Length} historyCount={Count}",
-            _llm.Model, systemPrompt?.Length ?? 0, history.Count);
+        _logger.LogInformation("AskAsync: provider={Provider} model={Model} systemPromptLength={Length} historyCount={Count}",
+            provider ?? "ollama", model ?? "default", systemPrompt?.Length ?? 0, history.Count);
 
         var messages = new List<LlmMessage>
         {
@@ -256,7 +258,7 @@ public class ChatService
 
         for (int i = 0; i < 3; i++)
         {
-            var msg = await _llm.ChatAsync(messages, tools);
+            var msg = await _llm.ChatAsync(provider, model, messages, tools);
 
             if (msg?.ToolCalls is not { Count: > 0 })
                 return CleanResponse(msg?.Content);

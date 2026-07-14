@@ -27,6 +27,7 @@ services:
       - ConnectionStrings__DefaultConnection=${DB_CONNECTION_STRING:-Host=db;Port=5432;Database=fanfoot;Username=postgres;Password=password}
       - OllamaUrl=${OLLAMA_URL:-http://192.168.0.48:11434/}
       - GroqApiKey=${GROQ_API_KEY}
+      - DeepSeekApiKey=${DEEPSEEK_API_KEY:-}
       - DataProtection__KeysPath=/data/keys
     volumes:
       - fanfoot-data:/data

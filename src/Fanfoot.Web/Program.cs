@@ -34,7 +34,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
     });
 builder.Services.AddAuthorization();
 builder.Services.AddOpenApi();
-builder.Services.AddControllers();
+builder.Services.AddControllersWithViews();
 builder.Services.AddAntiforgery(options => options.HeaderName = "X-CSRF-TOKEN");
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
@@ -43,9 +43,17 @@ builder.Services.AddFanfootInfrastructure(connectionString);
 builder.Services.AddFanfootDomain();
 
 var groqApiKey = builder.Configuration["GroqApiKey"];
+var deepSeekApiKey = builder.Configuration["DeepSeekApiKey"];
+var ollamaUrl = builder.Configuration["OllamaUrl"] ?? "http://192.168.0.48:11434/";
+builder.Services.AddHttpClient("Ollama", client =>
+{
+    client.BaseAddress = new Uri(ollamaUrl);
+    client.Timeout = TimeSpan.FromSeconds(120);
+});
+
 if (!string.IsNullOrEmpty(groqApiKey))
 {
-    builder.Services.AddHttpClient("Ollama", client =>
+    builder.Services.AddHttpClient("Groq", client =>
     {
         client.BaseAddress = new Uri("https://api.groq.com/openai/v1/");
         client.DefaultRequestHeaders.Authorization =
@@ -53,13 +61,15 @@ if (!string.IsNullOrEmpty(groqApiKey))
         client.Timeout = TimeSpan.FromSeconds(60);
     });
 }
-else
+
+if (!string.IsNullOrEmpty(deepSeekApiKey))
 {
-    var ollamaUrl = builder.Configuration["OllamaUrl"] ?? "http://192.168.0.48:11434/";
-    builder.Services.AddHttpClient("Ollama", client =>
+    builder.Services.AddHttpClient("DeepSeek", client =>
     {
-        client.BaseAddress = new Uri(new Uri(ollamaUrl), "v1/");
-        client.Timeout = TimeSpan.FromSeconds(120);
+        client.BaseAddress = new Uri("https://api.deepseek.com/");
+        client.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", deepSeekApiKey);
+        client.Timeout = TimeSpan.FromSeconds(60);
     });
 }
 
