@@ -2,39 +2,31 @@
 
 ## Prerequisites
 
-- [.NET 10 SDK](https://dotnet.microsoft.com/download)
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/)
 
 ## Setup
 
-**1. Start the local database**
+Start the complete local stack:
 
 ```powershell
-docker compose --profile local up -d
+docker compose --profile local up --build -d --wait
 ```
 
-This starts a PostgreSQL 17 container on `localhost:5432` with a persistent volume (`fanfoot-dev-data`).
+This starts the PostgreSQL 17 database, builds and runs the API, and builds and serves the React UI. The app is available at http://localhost:5020 and PostgreSQL is available at `localhost:5432`. Data is persisted in the `fanfoot-db-data` Docker volume.
 
-**2. Run the app**
+Stop the stack with:
 
 ```powershell
-cd src/Fanfoot.Web
-dotnet run
+docker compose --profile local down
 ```
 
-App runs at http://localhost:5020.
+Re-run the startup command after source changes to rebuild and restart the API and UI containers.
 
 ## First Run
 
 On first startup the app will automatically:
 
 1. Apply all pending EF Core migrations
-2. Seed the database with:
-   - A local user (`admin@local.dev` / `password`)
-   - A dev league
-   - All NFL player data from `src/Fanfoot.Web/localPlayerData.json`
-
-Seeding is idempotent — subsequent restarts skip it if data already exists.
 
 ## Player Data
 

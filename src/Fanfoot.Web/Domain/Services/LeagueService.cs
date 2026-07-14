@@ -232,6 +232,12 @@ public class LeagueService
         return entities.Select(EntityMapper.ToDomain).ToList();
     }
 
+    public async Task<List<DraftPick>> GetDraftPicksAsync(string leagueId, CancellationToken ct = default)
+    {
+        var picks = await _db.DraftPicks.Where(p => p.LeagueId == leagueId).ToListAsync(ct);
+        return picks.Select(EntityMapper.ToDomain).ToList();
+    }
+
     public async Task<DraftInfo?> GetDraftInfoAsync(string leagueId, CancellationToken ct = default)
     {
         var drafts = await _sleeper.GetLeagueDraftsAsync(leagueId, ct) ?? [];

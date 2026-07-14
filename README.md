@@ -1,6 +1,6 @@
 ﻿# Fanfoot
 
-A Blazor Interactive Server app for tracking Sleeper fantasy football leagues, with an AI assistant powered by a local Ollama model.
+A React single-page app with an ASP.NET Core API for tracking Sleeper fantasy football leagues, with an AI assistant powered by a local Ollama model.
 
 ## Features
 
@@ -13,13 +13,14 @@ A Blazor Interactive Server app for tracking Sleeper fantasy football leagues, w
 - Trade value data from FantasyCalc (dynasty and redraft)
 - Real-time player stats and NFL news via tools
 - Chat history — last 10 sessions per user persisted to the database
-- Player data synced nightly via background service or on-demand
+- Player data synced nightly via a background service
 
 ## Tech Stack
 
-- **.NET 10** Blazor Interactive Server
+- **React + TypeScript + Vite** single-page client
+- **.NET 10** API host with cookie authentication
 - **PostgreSQL** via EF Core + Npgsql
-- **Ollama** for local AI inference (`qwen2.5:7b` by default)
+- **DeepSeek**, **Groq**, or **Ollama** for AI inference, selectable from the AI chat screen
 - **Sleeper API** for league, roster, and player data
 - **FantasyCalc API** for trade values
 - **ESPN API** for player news
@@ -35,7 +36,7 @@ See [docs/local-development.md](docs/local-development.md) for full setup instru
 docker compose up --build
 ```
 
-The app runs on port `5020`. Configure `DB_CONNECTION_STRING` and `OllamaUrl` in your `.env` file before starting.
+The app runs on port `5020`. Configure `DB_CONNECTION_STRING`, `OLLAMA_URL`, and optionally `DEEPSEEK_API_KEY` or `GROQ_API_KEY` in `.env`. Select a configured provider and model from the AI chat screen.
 
 See [docs/DEPLOY.md](docs/DEPLOY.md) for setting up auto-deploy to an Unraid server via GitHub Actions.
 
@@ -46,7 +47,7 @@ The app is organized into three layers — **Controllers** (API endpoints + clie
 ```
 src/Fanfoot.Web/
 ├── Controllers/      # API controllers + request/response DTOs
-├── Components/       # Blazor pages and layout
+├── ClientApp/        # React/Vite application, built into wwwroot
 ├── Domain/           # Domain models + application services
 └── Infrastructure/   # DbContext, entities, Sleeper/FantasyCalc/ESPN/LLM clients
 ```

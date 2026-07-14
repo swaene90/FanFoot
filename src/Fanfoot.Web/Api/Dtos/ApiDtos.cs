@@ -1,0 +1,24 @@
+namespace Fanfoot.Web.Api.Dtos;
+
+public record AuthUserDto(string Id, string? DisplayName, string? Email);
+public record LoginResponse(AuthUserDto User);
+public record RegisterRequest(string Email, string Password, string SleeperUsername);
+public record LeagueDto(string Id, string Name, string Source, string? Avatar, int Season, string? PreviousLeagueId, int TotalRosters);
+public record TeamDto(string Id, string LeagueId, string? OwnerId, string Name, int Wins, int Losses, int Ties, double PointsFor, double PointsAgainst, string? ManagerName = null);
+public record PlayerDto(string Id, string FullName, string? Position, string? NflTeam, string? Status, string? InjuryStatus);
+public record PreferencesDto(bool IsDarkMode);
+public record UpdatePreferencesRequest(bool IsDarkMode);
+public record SeasonTeamsDto(int Season, IReadOnlyList<LeagueTeamsDto> Leagues);
+public record LeagueTeamsDto(LeagueDto League, IReadOnlyList<TeamDto> Teams);
+public record MeDto(AuthUserDto User, IReadOnlyList<LeagueDto> CurrentLeagues, IReadOnlyList<SeasonTeamsDto> TeamsBySeason);
+public record LeagueDetailDto(LeagueDto League, IReadOnlyList<TeamDto> Teams, LeagueDto? PreviousLeague);
+public record RosterDto(LeagueDto League, TeamDto Team, IReadOnlyList<PlayerDto> Starters, IReadOnlyList<PlayerDto> Bench, IReadOnlyList<PlayerDto> Reserve, IReadOnlyList<PlayerDto> Taxi);
+public record DraftPickDto(int Round, int PickNumber, string? TeamId, string? TeamName, string? ManagerName, string? OriginalTeamName, string? PlayerName, string? Position, string? NflTeam, bool IsKeeper);
+public record DraftOrderDto(int Round, int PickNumber, string TeamId, string TeamName, string ManagerName, string? OriginalTeamName);
+public record DraftDto(LeagueDto League, string? Status, string? Type, int TotalPicks, IReadOnlyList<TeamDto> Teams, IReadOnlyList<DraftPickDto> Picks, IReadOnlyList<DraftOrderDto> PlannedOrder);
+public record ChatSessionDto(string Id, string? LeagueId, string Title, DateTimeOffset UpdatedAt);
+public record ChatMessageDto(string Role, string Content);
+public record ChatModelDto(string Provider, string Model);
+public record ChatSessionDetailDto(ChatSessionDto Session, IReadOnlyList<ChatMessageDto> Messages);
+public record SendChatMessageRequest(string? SessionId, string? LeagueId, string? Provider, string? Model, string Message);
+public record SendChatMessageResponse(ChatSessionDetailDto Session, ChatMessageDto AssistantMessage);
