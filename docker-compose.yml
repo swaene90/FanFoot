@@ -28,6 +28,9 @@ services:
       - OllamaUrl=${OLLAMA_URL:-http://192.168.0.48:11434/}
       - GroqApiKey=${GROQ_API_KEY}
       - DeepSeekApiKey=${DEEPSEEK_API_KEY:-}
+      - App__PublicUrl=${APP_PUBLIC_URL:-https://fanfoot.swaenepoel.org}
+      - Resend__ApiKey=${RESEND_API_KEY:-}
+      - Resend__FromEmail=${RESEND_FROM_EMAIL:-FanFoot <no-reply@fanfoot.swaenepoel.org>}
       - DataProtection__KeysPath=/data/keys
     volumes:
       - fanfoot-data:/data

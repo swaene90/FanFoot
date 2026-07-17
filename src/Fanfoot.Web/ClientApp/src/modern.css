@@ -14,6 +14,9 @@
   --brand-mark-end: #00a6df;
   --brand-shadow: rgb(0 118 182 / 25%);
   --grid-line: rgb(0 118 182 / 3%);
+  --notice-bg: #effaf2;
+  --notice-border: #9ed3b1;
+  --notice-text: #175d31;
 }
 
 [data-theme="dark"] {
@@ -30,6 +33,9 @@
   --brand-mark-end: #1599d2;
   --brand-shadow: rgb(0 118 182 / 25%);
   --grid-line: rgb(0 118 182 / 5%);
+  --notice-bg: #152d1e;
+  --notice-border: #2c6842;
+  --notice-text: #b8edc8;
 }
 
 * { box-sizing: border-box; }
@@ -150,6 +156,8 @@ td:nth-child(n+3) { font-family: "DM Mono", monospace; font-size: .82rem; }
 .auth .card h1 { color: var(--text); font-size: 2.7rem; }
 .auth .card > button:not(.link) { width: 100%; margin-top: .45rem; }
 .auth label { font-size: .84rem; font-weight: 800; }
+.auth-link { display: inline-block; margin-top: 1rem; font-size: .9rem; }
+.notice { padding: .8rem; border: 1px solid var(--notice-border); border-radius: 10px; background: var(--notice-bg); color: var(--notice-text); }
 
 .chat { height: calc(100vh - 150px); min-height: 540px; overflow: hidden; border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); }
 .chat-toolbar { padding: 1rem 1.2rem; background: var(--surface-muted); border-bottom: 1px solid var(--line); }

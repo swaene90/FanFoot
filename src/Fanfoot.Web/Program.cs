@@ -5,8 +5,10 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Fanfoot.Domain.Models;
 using Fanfoot.Infrastructure.Data;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
+using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -30,6 +32,19 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         {
             ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
             return Task.CompletedTask;
+        };
+        options.Events.OnValidatePrincipal = async context =>
+        {
+            var userId = context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
+            var sessionVersion = context.Principal?.FindFirstValue("session_version");
+            if (userId == null || !int.TryParse(sessionVersion, out var version) ||
+                !await context.HttpContext.RequestServices
+                    .GetRequiredService<Fanfoot.Domain.Services.AuthService>()
+                    .IsSessionValidAsync(userId, version))
+            {
+                context.RejectPrincipal();
+                await context.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            }
         };
     });
 builder.Services.AddAuthorization();

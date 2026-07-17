@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Fanfoot.Infrastructure.Clients;
 using Fanfoot.Infrastructure.Data;
+using Fanfoot.Domain.Services;
 
 namespace Fanfoot.Infrastructure;
 
@@ -32,6 +33,10 @@ public static class ServiceExtensions
         });
 
         services.AddScoped<LlmClient>();
+        services.AddHttpClient<IEmailSender, ResendEmailSender>(client =>
+        {
+            client.BaseAddress = new Uri("https://api.resend.com/");
+        });
 
         return services;
     }
