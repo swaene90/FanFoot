@@ -90,7 +90,8 @@ public static class EntityMapper
         SleeperUserId = e.SleeperUserId,
         Email = e.Email,
         PasswordHash = e.PasswordHash,
-        CreatedAt = e.CreatedAt
+        CreatedAt = e.CreatedAt,
+        SessionVersion = e.SessionVersion
     };
 
     public static DraftPick ToDomain(DraftPickEntity e) => new()

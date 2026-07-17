@@ -16,6 +16,7 @@ public class FanfootDbContext : DbContext
     public DbSet<DraftPickEntity> DraftPicks => Set<DraftPickEntity>();
     public DbSet<LeagueSettingsEntity> LeagueSettings => Set<LeagueSettingsEntity>();
     public DbSet<LocalUserEntity> LocalUsers => Set<LocalUserEntity>();
+    public DbSet<PasswordResetTokenEntity> PasswordResetTokens => Set<PasswordResetTokenEntity>();
     public DbSet<ChatSessionEntity> ChatSessions => Set<ChatSessionEntity>();
     public DbSet<UserPreferencesEntity> UserPreferences => Set<UserPreferencesEntity>();
 
@@ -115,7 +116,18 @@ public class FanfootDbContext : DbContext
             e.Property(u => u.SleeperUserId).HasMaxLength(50);
             e.Property(u => u.Email).HasMaxLength(256);
             e.Property(u => u.PasswordHash).HasMaxLength(500);
+            e.Property(u => u.SessionVersion).HasDefaultValue(1);
             e.HasIndex(u => u.Email).IsUnique();
+        });
+
+        modelBuilder.Entity<PasswordResetTokenEntity>(e =>
+        {
+            e.ToTable("PasswordResetTokens");
+            e.HasKey(t => t.Id);
+            e.Property(t => t.SleeperUserId).HasMaxLength(50);
+            e.Property(t => t.TokenHash).HasMaxLength(64);
+            e.HasIndex(t => t.TokenHash).IsUnique();
+            e.HasIndex(t => new { t.SleeperUserId, t.ExpiresAt });
         });
 
         modelBuilder.Entity<ChatSessionEntity>(e =>

@@ -29,13 +29,7 @@ public class AuthController : ControllerBase
         if (user == null)
             return Unauthorized();
 
-        var claims = new List<Claim>
-        {
-            new(ClaimTypes.NameIdentifier, user.SleeperUserId),
-            new(ClaimTypes.Email, user.Email ?? "")
-        };
-        var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
-        await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(identity));
+        await SignInAsync(user);
         return Ok(new LoginResponse(new AuthUserDto(user.SleeperUserId, null, user.Email)));
     }
 
@@ -50,9 +44,7 @@ public class AuthController : ControllerBase
         if (user == null)
             return Problem("The account was created but could not be signed in.");
 
-        var claims = new List<Claim> { new(ClaimTypes.NameIdentifier, user.SleeperUserId), new(ClaimTypes.Email, user.Email ?? "") };
-        await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme,
-            new ClaimsPrincipal(new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme)));
+        await SignInAsync(user);
         return Ok(new LoginResponse(new AuthUserDto(user.SleeperUserId, null, user.Email)));
     }
 
@@ -70,6 +62,22 @@ public class AuthController : ControllerBase
         return Ok(new { token = tokens.RequestToken });
     }
 
+    [HttpPost("password-reset/request")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RequestPasswordReset(PasswordResetRequest request, CancellationToken cancellationToken)
+    {
+        await _auth.RequestPasswordResetAsync(request.Email, cancellationToken);
+        return Ok(new { message = "If an account exists for that email, a password reset link has been sent." });
+    }
+
+    [HttpPost("password-reset/confirm")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ConfirmPasswordReset(PasswordResetConfirmRequest request, CancellationToken cancellationToken)
+    {
+        var result = await _auth.ResetPasswordAsync(request.Token, request.Password, cancellationToken);
+        return result.Success ? NoContent() : BadRequest(new { error = result.Error });
+    }
+
     [HttpPost("logout")]
     [Authorize]
     [ValidateAntiForgeryToken]
@@ -77,5 +85,17 @@ public class AuthController : ControllerBase
     {
         await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
         return Ok();
+    }
+
+    private async Task SignInAsync(Fanfoot.Domain.Models.LocalUser user)
+    {
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, user.SleeperUserId),
+            new(ClaimTypes.Email, user.Email ?? ""),
+            new("session_version", user.SessionVersion.ToString())
+        };
+        var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+        await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(identity));
     }
 }

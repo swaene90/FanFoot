@@ -3,6 +3,8 @@ namespace Fanfoot.Web.Api.Dtos;
 public record AuthUserDto(string Id, string? DisplayName, string? Email);
 public record LoginResponse(AuthUserDto User);
 public record RegisterRequest(string Email, string Password, string SleeperUsername);
+public record PasswordResetRequest(string Email);
+public record PasswordResetConfirmRequest(string Token, string Password);
 public record LeagueDto(string Id, string Name, string Source, string? Avatar, int Season, string? PreviousLeagueId, int TotalRosters);
 public record TeamDto(string Id, string LeagueId, string? OwnerId, string Name, int Wins, int Losses, int Ties, double PointsFor, double PointsAgainst, string? ManagerName = null);
 public record PlayerDto(string Id, string FullName, string? Position, string? NflTeam, string? Status, string? InjuryStatus);

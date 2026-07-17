@@ -7,6 +7,7 @@ import {
   Routes,
   useNavigate,
   useParams,
+  useSearchParams,
 } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -93,6 +94,8 @@ function App() {
           )
         }
       />
+      <Route path="/forgot-password" element={user ? <Navigate to={`/user/${user.id}`} /> : <ForgotPassword />} />
+      <Route path="/reset-password" element={user ? <Navigate to={`/user/${user.id}`} /> : <ResetPassword />} />
       <Route
         path="*"
         element={
@@ -198,9 +201,61 @@ function SignIn({ onAuth }: { onAuth: (user: User) => void }) {
             ? "Already have an account? Sign in"
             : "Need an account? Register"}
         </button>
+        {!register && <Link className="auth-link" to="/forgot-password">Forgot password?</Link>}
       </form>
     </main>
   );
+}
+
+function ForgotPassword() {
+  const [status, setStatus] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      const form = new FormData(event.currentTarget);
+      await api("/auth/password-reset/request", { method: "POST", body: JSON.stringify({ email: form.get("email") }) });
+      setStatus("If an account exists for that email, a password reset link has been sent.");
+    } catch (reason) {
+      setError(String(reason || "Unable to send a reset link."));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return <main className="auth"><form className="card" onSubmit={submit}>
+    <h1>Reset password</h1><p>Enter your email and we will send a reset link.</p>
+    {error && <div className="alert" role="alert">{error}</div>}
+    {status ? <div className="notice" role="status">{status}</div> : <><label>Email<input required name="email" type="email" autoComplete="email" /></label><button disabled={busy}>{busy ? "Sending..." : "Send reset link"}</button></>}
+    <Link className="auth-link" to="/">Back to sign in</Link>
+  </form></main>;
+}
+
+function ResetPassword() {
+  const [params] = useSearchParams();
+  const [error, setError] = useState("");
+  const [complete, setComplete] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const token = params.get("token") || "";
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const password = String(form.get("password") || "");
+    if (password !== form.get("confirmPassword")) { setError("Passwords do not match."); return; }
+    setBusy(true); setError("");
+    try {
+      await api("/auth/password-reset/confirm", { method: "POST", body: JSON.stringify({ token, password }) });
+      setComplete(true);
+    } catch (reason) { setError(String(reason || "Unable to reset password.")); }
+    finally { setBusy(false); }
+  };
+  return <main className="auth"><form className="card" onSubmit={submit}>
+    <h1>Choose a new password</h1><p id="password-requirement">Your new password must be at least eight characters.</p>
+    {error && <div className="alert" role="alert">{error}</div>}
+    {complete ? <><div className="notice" role="status">Your password has been reset. Please sign in again.</div><Link className="auth-link" to="/">Sign in</Link></> : !token ? <><div className="alert" role="alert">This reset link is invalid.</div><Link className="auth-link" to="/forgot-password">Request a new reset link</Link><Link className="auth-link" to="/">Back to sign in</Link></> : <><label>New password<input required disabled={busy} name="password" type="password" minLength={8} autoComplete="new-password" aria-describedby="password-requirement" /></label><label>Confirm password<input required disabled={busy} name="confirmPassword" type="password" minLength={8} autoComplete="new-password" /></label><button disabled={busy}>{busy ? "Resetting..." : "Reset password"}</button></>}
+  </form></main>;
 }
 
 function Shell({

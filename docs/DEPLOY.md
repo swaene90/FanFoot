@@ -40,8 +40,13 @@ The `.env` file is not in git, so it needs to be created manually on the server:
 cat > /mnt/user/appdata/fanfoot/.env <<EOF
 ConnectionStrings__DefaultConnection=Host=<unraid-ip>;Port=5432;Database=fanfoot;Username=postgres;Password=<your-db-password>
 DB_CONNECTION_STRING=Host=<unraid-ip>;Port=5432;Database=fanfoot;Username=postgres;Password=<your-db-password>
+APP_PUBLIC_URL=https://fanfoot.swaenepoel.org
+RESEND_API_KEY=re_your_resend_api_key
+RESEND_FROM_EMAIL=FanFoot <no-reply@fanfoot.swaenepoel.org>
 EOF
 ```
+
+Verify the configured Resend sender domain before deploying so password reset emails can be delivered.
 
 ### 5. Add GitHub Actions secrets
 
